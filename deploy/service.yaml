@@ -1,0 +1,96 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: catalyst-newsletter
+  annotations:
+    run.googleapis.com/launch-stage: GA
+spec:
+  template:
+    metadata:
+      annotations:
+        # Cloud SQL connections
+        run.googleapis.com/cloudsql-instances: PROJECT_ID:REGION:newsletter-db
+        # CPU allocation
+        run.googleapis.com/cpu-throttling: "false"
+        # Execution environment
+        run.googleapis.com/execution-environment: gen2
+    spec:
+      serviceAccountName: newsletter-sa@PROJECT_ID.iam.gserviceaccount.com
+      containerConcurrency: 100
+      timeoutSeconds: 300
+      containers:
+        - name: newsletter-app
+          image: gcr.io/PROJECT_ID/catalyst-newsletter:latest
+          ports:
+            - containerPort: 3000
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+            requests:
+              cpu: "1"
+              memory: 1Gi
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: CLAUDE_MODEL
+              value: claude-opus-4-1-20250805
+            - name: PORT
+              value: "3000"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: database-url
+                  key: latest
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: anthropic-api-key
+                  key: latest
+            # Firebase/Identity Platform Configuration
+            - name: NEXT_PUBLIC_FIREBASE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: firebase-config
+                  key: api-key
+            - name: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+              valueFrom:
+                secretKeyRef:
+                  name: firebase-config
+                  key: auth-domain
+            - name: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: firebase-config
+                  key: project-id
+            - name: FIREBASE_SERVICE_ACCOUNT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: firebase-admin-key
+                  key: latest
+            # Microsoft Entra ID Configuration (optional)
+            - name: NEXT_PUBLIC_ENTRA_TENANT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: entra-config
+                  key: tenant-id
+                  optional: true
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+  traffic:
+    - percent: 100
+      latestRevision: true

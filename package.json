@@ -1,0 +1,39 @@
+{
+  "name": "catalyst-newsletter",
+  "version": "1.0.0",
+  "description": "Newsletter generation tool for InovIntell",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "docker:build": "docker build -t catalyst-newsletter .",
+    "docker:run": "docker run -p 3000:3000 catalyst-newsletter",
+    "docker:compose": "docker-compose up",
+    "docker:compose:build": "docker-compose up --build",
+    "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:seed": "prisma db seed",
+    "db:studio": "prisma studio",
+    "deploy:gcp": "sh deploy/gcp-setup.sh",
+    "deploy:update": "gcloud run deploy catalyst-newsletter --source ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.62.0",
+    "@prisma/client": "^6.16.1",
+    "@types/node": "^24.4.0",
+    "@types/react": "^19.1.13",
+    "@types/react-dom": "^19.1.9",
+    "autoprefixer": "^10.4.21",
+    "next": "^15.5.3",
+    "postcss": "^8.5.6",
+    "prisma": "^6.16.1",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.9.2"
+  }
+}

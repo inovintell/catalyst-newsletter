@@ -1,0 +1,1155 @@
+{
+  "name": "newsletter-agent",
+  "version": "1.0.0",
+  "description": "InovIntell Healthcare & Life Sciences Newsletter Generator",
+  "prompt_template": "You are an expert healthcare and life sciences newsletter generator for InovIntell, specializing in:\n- HTA (Health Technology Assessment)\n- HEOR (Health Economics and Outcomes Research)\n- Market Access and Pricing\n- Regulatory Affairs\n- Clinical Trial Updates\n\nYour task is to generate a comprehensive newsletter based on the provided configuration.\n\nInstructions:\n1. Search each configured news source for relevant content within the specified date range\n2. Focus on developments that impact pharmaceutical and biotech companies\n3. Highlight regulatory changes, pricing decisions, and reimbursement updates\n4. Include relevant clinical trial results and drug approvals\n5. Note significant partnerships, acquisitions, or strategic moves\n6. Provide context and implications for each major development\n7. Use professional, clear language suitable for executives\n\nOutput Structure:\n- Executive Summary (if requested)\n- Key Developments by Category\n- Regional Updates\n- Market Implications\n- Action Items and Recommendations\n\nGuidelines:\n- Prioritize high-importance sources\n- Screen sources marked as requiring screening for relevance\n- Group related news items for better context\n- Provide source citations for all information\n- Maintain objectivity while highlighting strategic implications",
+  "sources": [
+    {
+      "id": 62,
+      "url": "Latest news - MedTech Europe, from diagnosis to cure",
+      "name": "MedTech Europe",
+      "topic": "Access to medical technologies",
+      "geoScope": "Europe",
+      "requiresScreening": false
+    },
+    {
+      "id": 47,
+      "url": "Asia | Fierce Pharma",
+      "name": "FIERCE Pharma",
+      "topic": "Asian news",
+      "geoScope": "Asia",
+      "requiresScreening": false
+    },
+    {
+      "id": 102,
+      "url": "Assessments | Explore Our Research | ICER",
+      "name": "ICER",
+      "topic": "Assessments",
+      "geoScope": "US",
+      "requiresScreening": false
+    },
+    {
+      "id": 69,
+      "url": "Biotech News | BioPharma Dive",
+      "name": "Biopharma Dive",
+      "topic": "Biotech news",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 48,
+      "url": "Fierce Biotech News & Reports",
+      "name": "FIERCE Biotech",
+      "topic": "Biotech news",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 79,
+      "url": "STAT Biotech: Market-moving coverage of new drug development",
+      "name": "STAT Pharma",
+      "topic": "Biotech news",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 49,
+      "url": "Cell & Gene Therapy | Fierce Biotech",
+      "name": "FIERCE Biotech",
+      "topic": "Cell & gene therapies news",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 44,
+      "url": "Cell & Gene Therapy | Fierce Pharma",
+      "name": "FIERCE Pharma",
+      "topic": "Cell & gene therapies news",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 50,
+      "url": "Clinical Data | Fierce Biotech",
+      "name": "FIERCE Biotech",
+      "topic": "Clinical data",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 130,
+      "url": "https://example.com",
+      "name": "Test Medical Journal",
+      "topic": "Clinical data",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 100,
+      "url": "Commentaries | News & Insights | ICER",
+      "name": "ICER",
+      "topic": "Commentaries",
+      "geoScope": "US",
+      "requiresScreening": false
+    },
+    {
+      "id": 94,
+      "url": "Cost Effectiveness Archives - HealthEconomics.com",
+      "name": "HealthEconomics",
+      "topic": "Cost-effectiveness",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 107,
+      "url": "News | C2H｜Center for Outcomes Research and Economic Evaluation for Health",
+      "name": "C2H",
+      "topic": "Cost-effectiveness reports",
+      "geoScope": "Japan",
+      "requiresScreening": false
+    },
+    {
+      "id": 117,
+      "url": "Search Result | Becaris Publishing",
+      "name": "Becaris",
+      "topic": "Drug pricing",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 114,
+      "url": "Search Result | Becaris Publishing",
+      "name": "Becaris",
+      "topic": "Drugs, MD, vaccines",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 5,
+      "url": "Search | Citeline News & Insights",
+      "name": "Citelines",
+      "topic": "EU HTA",
+      "geoScope": "Europe",
+      "requiresScreening": true,
+      "notes": "Requires screening of the content"
+    },
+    {
+      "id": 3,
+      "url": "Key documents - European Commission",
+      "name": "European Commission",
+      "topic": "EU HTA",
+      "geoScope": "Europe",
+      "requiresScreening": false,
+      "notes": "100% of the content important for us"
+    },
+    {
+      "id": 4,
+      "url": "Latest updates - European Commission",
+      "name": "European Commission",
+      "topic": "EU HTA news",
+      "geoScope": "Europe",
+      "requiresScreening": false,
+      "notes": "100% of the content important for us"
+    },
+    {
+      "id": 64,
+      "url": "Industry News Documents on Pharmaceutical Online",
+      "name": "Pharmaceutical Online",
+      "topic": "Editorials",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 53,
+      "url": "Finance | Fierce Healthcare",
+      "name": "FIERCE Healthcare",
+      "topic": "Finance",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 70,
+      "url": "Gene Therapy News | BioPharma Dive",
+      "name": "Biopharma Dive",
+      "topic": "Gene therapy news",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 81,
+      "url": "Gene Therapy News: A STAT Research Roundup",
+      "name": "STAT Pharma",
+      "topic": "Gene therapy news",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 16,
+      "url": "Search | Citeline News & Insights",
+      "name": "Citelines",
+      "topic": "HEOR",
+      "geoScope": "Global",
+      "requiresScreening": true,
+      "notes": "Requires screening of the content"
+    },
+    {
+      "id": 112,
+      "url": "Search Result | Becaris Publishing",
+      "name": "Becaris",
+      "topic": "HTA",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 14,
+      "url": "Search | Citeline News & Insights",
+      "name": "Citelines",
+      "topic": "HTA",
+      "geoScope": "Global",
+      "requiresScreening": true,
+      "notes": "Requires screening of the content"
+    },
+    {
+      "id": 92,
+      "url": "Health Tech Assessment Archives - HealthEconomics.com",
+      "name": "HealthEconomics",
+      "topic": "HTA",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 38,
+      "url": "Health Technology Assessment (HTA) - Market Access Today",
+      "name": "Market Access Today",
+      "topic": "HTA",
+      "geoScope": "Global",
+      "requiresScreening": true,
+      "notes": "Requires screening of the content"
+    },
+    {
+      "id": 97,
+      "url": "HTA - Syenza News",
+      "name": "Syenza",
+      "topic": "HTA",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 119,
+      "url": "Search Result | Becaris Publishing",
+      "name": "Becaris",
+      "topic": "HTA Regulation",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 9,
+      "url": "Search | Citeline News & Insights",
+      "name": "Citelines",
+      "topic": "HTA Regulation",
+      "geoScope": "Europe",
+      "requiresScreening": true,
+      "notes": "Requires screening of the content"
+    },
+    {
+      "id": 61,
+      "url": "Latest news - MedTech Europe, from diagnosis to cure",
+      "name": "MedTech Europe",
+      "topic": "HTA news",
+      "geoScope": "Europe",
+      "requiresScreening": false
+    },
+    {
+      "id": 56,
+      "url": "EU Health Technology Assessment Regulation",
+      "name": "Global Legal Insights",
+      "topic": "HTAR",
+      "geoScope": "Global",
+      "requiresScreening": false,
+      "notes": "Interesting"
+    },
+    {
+      "id": 15,
+      "url": "Search | Citeline News & Insights",
+      "name": "Citelines",
+      "topic": "Health Technology Assessment",
+      "geoScope": "Global",
+      "requiresScreening": true,
+      "notes": "Requires screening of the content"
+    },
+    {
+      "id": 113,
+      "url": "Search Result | Becaris Publishing",
+      "name": "Becaris",
+      "topic": "Health economics",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 17,
+      "url": "Search | Citeline News & Insights",
+      "name": "Citelines",
+      "topic": "Health economics",
+      "geoScope": "Global",
+      "requiresScreening": true,
+      "notes": "Requires screening of the content"
+    },
+    {
+      "id": 36,
+      "url": "Healthcare Policy and Regulation - Market Access Today",
+      "name": "Market Access Today",
+      "topic": "Health policy and regulation",
+      "geoScope": "Global",
+      "requiresScreening": true,
+      "notes": "Requires screening of the content"
+    },
+    {
+      "id": 98,
+      "url": "Health Policy - Syenza News",
+      "name": "Syenza",
+      "topic": "Health policy and regulation",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 63,
+      "url": "Industry News Documents on Pharmaceutical Online",
+      "name": "Pharmaceutical Online",
+      "topic": "Industry news",
+      "geoScope": "Europe",
+      "requiresScreening": false
+    },
+    {
+      "id": 59,
+      "url": "Insights - Abacus Medicine Pharma Services",
+      "name": "Abacus Medicine",
+      "topic": "Insights",
+      "geoScope": "Europe",
+      "requiresScreening": false
+    },
+    {
+      "id": 118,
+      "url": "Search Result | Becaris Publishing",
+      "name": "Becaris",
+      "topic": "JCA",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 6,
+      "url": "Search | Citeline News & Insights",
+      "name": "Citelines",
+      "topic": "JCA",
+      "geoScope": "Europe",
+      "requiresScreening": true,
+      "notes": "Requires screening of the content"
+    },
+    {
+      "id": 2,
+      "url": "hta_ongoing-jca_en.xlsx",
+      "name": "European Commission",
+      "topic": "JCA",
+      "geoScope": "Europe",
+      "requiresScreening": false,
+      "notes": "100% of the content important for us"
+    },
+    {
+      "id": 7,
+      "url": "Search | Citeline News & Insights",
+      "name": "Citelines",
+      "topic": "Joint Clinical Assessment",
+      "geoScope": "Europe",
+      "requiresScreening": true,
+      "notes": "Requires screening of the content"
+    },
+    {
+      "id": 8,
+      "url": "Search | Citeline News & Insights",
+      "name": "Citelines",
+      "topic": "Joint Scientific Consultation",
+      "geoScope": "Europe",
+      "requiresScreening": true,
+      "notes": "Requires screening of the content"
+    },
+    {
+      "id": 101,
+      "url": "Journal Articles | News & Insights | ICER",
+      "name": "ICER",
+      "topic": "Journal articles",
+      "geoScope": "US",
+      "requiresScreening": false
+    },
+    {
+      "id": 90,
+      "url": "HealthEconomics.com - RWE, HEOR, and Market Access Content for Industry Professionals",
+      "name": "HealthEconomics",
+      "topic": "Latest Market Access/HEOR/RWE news",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 111,
+      "url": "Search Result | Becaris Publishing",
+      "name": "Becaris",
+      "topic": "Market Access",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 83,
+      "url": "Pink Sheet | Key Regulatory and Policy Insights",
+      "name": "Citeline",
+      "topic": "Market Access",
+      "geoScope": "Global",
+      "requiresScreening": false,
+      "notes": "Need to scroll down for Market Access news"
+    },
+    {
+      "id": 10,
+      "url": "Search | Citeline News & Insights",
+      "name": "Citelines",
+      "topic": "Market Access",
+      "geoScope": "Global",
+      "requiresScreening": true,
+      "notes": "Requires screening of the content"
+    },
+    {
+      "id": 37,
+      "url": "Health Economics - Market Access Today",
+      "name": "Market Access Today",
+      "topic": "Market Access",
+      "geoScope": "Global",
+      "requiresScreening": true,
+      "notes": "Requires screening of the content"
+    },
+    {
+      "id": 1,
+      "url": "Aktywność | Neil Grubert | LinkedIn",
+      "name": "Neil Grubert",
+      "topic": "Market Access",
+      "geoScope": "Global",
+      "requiresScreening": false,
+      "notes": "100% of the content is interesting for us"
+    },
+    {
+      "id": 84,
+      "url": "Market Access",
+      "name": "Pharma IQ",
+      "topic": "Market Access",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 91,
+      "url": "Market Access Archives - HealthEconomics.com",
+      "name": "HealthEconomics",
+      "topic": "Market Access (all news)",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 104,
+      "url": "AMCP Press & News | AMCP.org",
+      "name": "AMCP",
+      "topic": "News",
+      "geoScope": "US",
+      "requiresScreening": false
+    },
+    {
+      "id": 110,
+      "url": "Pharmaceutical Industry News Commentary Media - AnswersNews",
+      "name": "AnswersNews",
+      "topic": "News",
+      "geoScope": "Japan",
+      "requiresScreening": false,
+      "notes": "In Japanese"
+    },
+    {
+      "id": 105,
+      "url": "News | CDA-AMC",
+      "name": "Canada’s Drug Agency",
+      "topic": "News",
+      "geoScope": "Canada",
+      "requiresScreening": false
+    },
+    {
+      "id": 66,
+      "url": "News - Clinical Trials Arena",
+      "name": "Clinical Trials Arena",
+      "topic": "News",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 58,
+      "url": "DIA - News Updates",
+      "name": "DIA",
+      "topic": "News",
+      "geoScope": "Global",
+      "requiresScreening": false,
+      "notes": "Not very convenient (need for scrolling, no  filter available)"
+    },
+    {
+      "id": 71,
+      "url": "Drug Discovery & Development | Pharma and Biotech Insights",
+      "name": "Drug Discovery and Development",
+      "topic": "News",
+      "geoScope": "Global",
+      "requiresScreening": false,
+      "notes": "Rather on R&D"
+    },
+    {
+      "id": 65,
+      "url": "News - European Pharmaceutical Review",
+      "name": "European Pharmaceutical Review",
+      "topic": "News",
+      "geoScope": "Europe",
+      "requiresScreening": false
+    },
+    {
+      "id": 89,
+      "url": "ISPOR News",
+      "name": "ISPOR",
+      "topic": "News",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 60,
+      "url": "Latest news - MedTech Europe, from diagnosis to cure",
+      "name": "MedTech Europe",
+      "topic": "News",
+      "geoScope": "Europe",
+      "requiresScreening": false
+    },
+    {
+      "id": 108,
+      "url": "News & Insights - OHE",
+      "name": "OHE",
+      "topic": "News",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 109,
+      "url": "TOP STORIES | PHARMA JAPAN",
+      "name": "PHARMA JAPAN",
+      "topic": "News",
+      "geoScope": "Japan",
+      "requiresScreening": false,
+      "notes": "Paid access, only heading for free"
+    },
+    {
+      "id": 85,
+      "url": "Newsroom | PhRMA",
+      "name": "PhRMA",
+      "topic": "News",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 74,
+      "url": "News",
+      "name": "PharmTech",
+      "topic": "News",
+      "geoScope": "Global",
+      "requiresScreening": false,
+      "notes": "Rather on R&D"
+    },
+    {
+      "id": 77,
+      "url": "Newsletter Campaigns | Pharma Manufacturing",
+      "name": "Pharma Manufacturing",
+      "topic": "News",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 73,
+      "url": "News - PharmaTimes",
+      "name": "PharmaTimes",
+      "topic": "News",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 86,
+      "url": "News",
+      "name": "Pharmaceutical Commerce",
+      "topic": "News",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 87,
+      "url": "All News",
+      "name": "Pharmaceutical Executive",
+      "topic": "News",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 72,
+      "url": "News | Timely industry updates for pharma and biotech leaders",
+      "name": "Pharmaphorum",
+      "topic": "News",
+      "geoScope": "Global",
+      "requiresScreening": false,
+      "notes": "Need to scroll down for Market Access news"
+    },
+    {
+      "id": 88,
+      "url": "Pharma, Biotech and Generics Industry News | The Pharmaletter",
+      "name": "The Pharma Letter",
+      "topic": "News",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 54,
+      "url": "News - Trinity Life Sciences",
+      "name": "Trinity",
+      "topic": "News",
+      "geoScope": "Global",
+      "requiresScreening": false,
+      "notes": "Consultancy"
+    },
+    {
+      "id": 76,
+      "url": "Breaking World Pharma News",
+      "name": "World Pharma News",
+      "topic": "News",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 45,
+      "url": "Oncology | Fierce Pharma",
+      "name": "FIERCE Pharma",
+      "topic": "Oncology news",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 18,
+      "url": "Search | Citeline News & Insights",
+      "name": "Citelines",
+      "topic": "Outcomes research",
+      "geoScope": "Global",
+      "requiresScreening": true,
+      "notes": "Requires screening of the content"
+    },
+    {
+      "id": 57,
+      "url": "News - GLI",
+      "name": "Global Legal Insights",
+      "topic": "P&R news",
+      "geoScope": "Global",
+      "requiresScreening": false,
+      "notes": "Interesting"
+    },
+    {
+      "id": 51,
+      "url": "Payers | Fierce Healthcare",
+      "name": "FIERCE Healthcare",
+      "topic": "Payers",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 78,
+      "url": "STAT Pharma: The science and business of new drug development",
+      "name": "STAT Pharma",
+      "topic": "Pharma",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 67,
+      "url": "Pharma News | BioPharma Dive",
+      "name": "Biopharma Dive",
+      "topic": "Pharma news",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 43,
+      "url": "Fierce Pharma Biopharma News & Insights",
+      "name": "FIERCE Pharma",
+      "topic": "Pharma news",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 40,
+      "url": "Pharmacoeconomics - Market Access Today",
+      "name": "Market Access Today",
+      "topic": "Pharmacoeconomics",
+      "geoScope": "Global",
+      "requiresScreening": true,
+      "notes": "Requires screening of the content"
+    },
+    {
+      "id": 80,
+      "url": "Health care policy and public health news from STAT",
+      "name": "STAT Pharma",
+      "topic": "Policy",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 75,
+      "url": "Pharmaceutical Policy and Regulations News | PharmaVoice",
+      "name": "PharmaVoice",
+      "topic": "Policy & regulation",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 103,
+      "url": "Policy Papers | Explore Our Reasearch | ICER",
+      "name": "ICER",
+      "topic": "Policy papers",
+      "geoScope": "US",
+      "requiresScreening": false
+    },
+    {
+      "id": 99,
+      "url": "Press Releases | News & Insights | ICER",
+      "name": "ICER",
+      "topic": "Press releases",
+      "geoScope": "US",
+      "requiresScreening": false
+    },
+    {
+      "id": 11,
+      "url": "Search | Citeline News & Insights",
+      "name": "Citelines",
+      "topic": "Pricing",
+      "geoScope": "Global",
+      "requiresScreening": true,
+      "notes": "Requires screening of the content"
+    },
+    {
+      "id": 82,
+      "url": "Drug Pricing Policies & Insights",
+      "name": "Pink Sheet",
+      "topic": "Pricing",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 13,
+      "url": "Search | Citeline News & Insights",
+      "name": "Citelines",
+      "topic": "Pricing and reimbursement",
+      "geoScope": "Global",
+      "requiresScreening": true,
+      "notes": "Requires screening of the content"
+    },
+    {
+      "id": 93,
+      "url": "Pricing & Reimbursement Archives - HealthEconomics.com",
+      "name": "HealthEconomics",
+      "topic": "Pricing and reimbursement",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 39,
+      "url": "Pricing and Reimbursement - Market Access Today",
+      "name": "Market Access Today",
+      "topic": "Pricing and reimbursement",
+      "geoScope": "Global",
+      "requiresScreening": true,
+      "notes": "Requires screening of the content"
+    },
+    {
+      "id": 68,
+      "url": "Drug Pricing News | BioPharma Dive",
+      "name": "Biopharma Dive",
+      "topic": "Pricing news",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 115,
+      "url": "Search Result | Becaris Publishing",
+      "name": "Becaris",
+      "topic": "Rare diseases/Orphan drugs",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 12,
+      "url": "Search | Citeline News & Insights",
+      "name": "Citelines",
+      "topic": "Reimbursement",
+      "geoScope": "Global",
+      "requiresScreening": true,
+      "notes": "Requires screening of the content"
+    },
+    {
+      "id": 106,
+      "url": "Find Reports | CDA-AMC",
+      "name": "Canada’s Drug Agency",
+      "topic": "Reimbursement review reports",
+      "geoScope": "Canada",
+      "requiresScreening": false
+    },
+    {
+      "id": 52,
+      "url": "Special Reports | Fierce Healthcare",
+      "name": "FIERCE Healthcare",
+      "topic": "Reports",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 55,
+      "url": "The new Regulation (EU) 2021/2282 on Health Technology Assessment - Pharmavibes",
+      "name": "Pharmavibes",
+      "topic": "Updates on HTAR",
+      "geoScope": "Europe",
+      "requiresScreening": false,
+      "notes": "Only info on HTAR seems updated on this website (other news quite old)"
+    },
+    {
+      "id": 116,
+      "url": "Search Result | Becaris Publishing",
+      "name": "Becaris",
+      "topic": "Value assessment",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 95,
+      "url": "tHEORetically Speaking - Value Assessment Archives - HealthEconomics.com",
+      "name": "HealthEconomics",
+      "topic": "Value assessment",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 96,
+      "url": "Value Communication Archives - HealthEconomics.com",
+      "name": "HealthEconomics",
+      "topic": "Value communication",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 46,
+      "url": "Resource Products | Fierce Pharma",
+      "name": "FIERCE Pharma",
+      "topic": "Whitepapers (to download)",
+      "geoScope": "Global",
+      "requiresScreening": false
+    },
+    {
+      "id": 129,
+      "url": "https://clinicaltrials.gov/",
+      "name": "ClinicalTrials.gov",
+      "topic": "Clinical Trials",
+      "geoScope": "United States",
+      "importance": "Medium",
+      "requiresScreening": true,
+      "notes": "US clinical trials database"
+    },
+    {
+      "id": 126,
+      "url": "https://www.cadth.ca/news",
+      "name": "CADTH",
+      "topic": "HTA",
+      "geoScope": "Canada",
+      "importance": "Medium",
+      "requiresScreening": false,
+      "notes": "Canadian Agency for Drugs and Technologies in Health"
+    },
+    {
+      "id": 123,
+      "url": "https://icer.org/news-insights/",
+      "name": "ICER",
+      "topic": "HTA",
+      "geoScope": "United States",
+      "importance": "Medium",
+      "requiresScreening": false,
+      "notes": "Institute for Clinical and Economic Review"
+    },
+    {
+      "id": 125,
+      "url": "https://www.fiercepharma.com/",
+      "name": "FiercePharma",
+      "topic": "Industry News",
+      "geoScope": "Global",
+      "importance": "Medium",
+      "requiresScreening": true,
+      "notes": "Pharmaceutical industry news and analysis"
+    },
+    {
+      "id": 124,
+      "url": "https://www.pharmatimes.com/news/market_access",
+      "name": "PharmaTimes",
+      "topic": "Market Access",
+      "geoScope": "Global",
+      "importance": "Medium",
+      "requiresScreening": true,
+      "notes": "Market access and pricing news"
+    },
+    {
+      "id": 42,
+      "url": "The EFPIA view",
+      "name": "EFPIA news",
+      "topic": "Access to medicines",
+      "geoScope": "Europe",
+      "importance": "Less important",
+      "requiresScreening": false,
+      "notes": "Less important"
+    },
+    {
+      "id": 29,
+      "url": "AIFA Research | Italian Medicines Agency",
+      "name": "AIFA",
+      "topic": "HTA news",
+      "geoScope": "Italy",
+      "importance": "Less important",
+      "requiresScreening": false,
+      "notes": "Less important"
+    },
+    {
+      "id": 26,
+      "url": "Press Releases and Announcements - Federal Joint Committee",
+      "name": "G-BA",
+      "topic": "HTA news",
+      "geoScope": "Germany",
+      "importance": "Less important",
+      "requiresScreening": false,
+      "notes": "Less important"
+    },
+    {
+      "id": 20,
+      "url": "Haute Autorité de Santé - News",
+      "name": "HAS",
+      "topic": "HTA news",
+      "geoScope": "France",
+      "importance": "Less important",
+      "requiresScreening": false,
+      "notes": "Less important"
+    },
+    {
+      "id": 28,
+      "url": "Press releases | IQWiG.de",
+      "name": "IQWiG",
+      "topic": "HTA news",
+      "geoScope": "Germany",
+      "importance": "Less important",
+      "requiresScreening": false,
+      "notes": "Less important"
+    },
+    {
+      "id": 22,
+      "url": "News Articles | NICE",
+      "name": "NICE",
+      "topic": "HTA news",
+      "geoScope": "UK",
+      "importance": "Less important",
+      "requiresScreening": false,
+      "notes": "Less important"
+    },
+    {
+      "id": 24,
+      "url": "Latest update",
+      "name": "SMC",
+      "topic": "HTA news",
+      "geoScope": "UK",
+      "importance": "Less important",
+      "requiresScreening": false,
+      "notes": "Less important"
+    },
+    {
+      "id": 35,
+      "url": "sbu.se/en/search/?q=&p=1&s=0&c=177",
+      "name": "SBU",
+      "topic": "HTA reports",
+      "geoScope": "Sweden",
+      "importance": "Less important",
+      "requiresScreening": false,
+      "notes": "Less important"
+    },
+    {
+      "id": 34,
+      "url": "News - Tandvårds- och läkemedelsförbenefitsverket TLV",
+      "name": "TLV",
+      "topic": "HTA reports",
+      "geoScope": "Sweden",
+      "importance": "Less important",
+      "requiresScreening": false,
+      "notes": "Less important"
+    },
+    {
+      "id": 41,
+      "url": "Resources | EUCOPE AISBL",
+      "name": "EUCOPE",
+      "topic": "PRMA",
+      "geoScope": "Europe",
+      "importance": "Less important",
+      "requiresScreening": false,
+      "notes": "Less important"
+    },
+    {
+      "id": 30,
+      "url": "Therapeutic Positioning Reports | AEMPS",
+      "name": "AEMPS",
+      "topic": "HTA news",
+      "geoScope": "Spain",
+      "importance": "Important",
+      "requiresScreening": false,
+      "notes": "Important"
+    },
+    {
+      "id": 33,
+      "url": "Decision - Tandvårds- och läkemedelsförnässverket TLV",
+      "name": "TLV",
+      "topic": "HTA news",
+      "geoScope": "Sweden",
+      "importance": "Important",
+      "requiresScreening": false,
+      "notes": "Important"
+    },
+    {
+      "id": 25,
+      "url": "Decisions on pharmaceuticals - Federal Joint Committee",
+      "name": "G-BA",
+      "topic": "HTA reports",
+      "geoScope": "Germany",
+      "importance": "Important",
+      "requiresScreening": false,
+      "notes": "Important"
+    },
+    {
+      "id": 19,
+      "url": "Haute Autorité de Santé - Résultat de recherche",
+      "name": "HAS",
+      "topic": "HTA reports",
+      "geoScope": "France",
+      "importance": "Important",
+      "requiresScreening": false,
+      "notes": "Important"
+    },
+    {
+      "id": 27,
+      "url": "Projects & results | IQWiG.de",
+      "name": "IQWiG",
+      "topic": "HTA reports",
+      "geoScope": "Germany",
+      "importance": "Important",
+      "requiresScreening": false,
+      "notes": "Important"
+    },
+    {
+      "id": 32,
+      "url": "All reports | KCE",
+      "name": "KCE",
+      "topic": "HTA reports",
+      "geoScope": "Belgium",
+      "importance": "Important",
+      "requiresScreening": false,
+      "notes": "Important"
+    },
+    {
+      "id": 21,
+      "url": "Published guidance, NICE advice and quality standards | Guidance | NICE",
+      "name": "NICE",
+      "topic": "HTA reports",
+      "geoScope": "UK",
+      "importance": "Important",
+      "requiresScreening": false,
+      "notes": "Important"
+    },
+    {
+      "id": 23,
+      "url": "Medicines advice",
+      "name": "SMC",
+      "topic": "HTA reports",
+      "geoScope": "UK",
+      "importance": "Important",
+      "requiresScreening": false,
+      "notes": "Important"
+    },
+    {
+      "id": 31,
+      "url": "Search | National Health Care Institute",
+      "name": "ZIN",
+      "topic": "HTA reports",
+      "geoScope": "Netherlands",
+      "importance": "Important",
+      "requiresScreening": false,
+      "notes": "Important"
+    },
+    {
+      "id": 128,
+      "url": "https://www.ispor.org/heor-resources/news",
+      "name": "ISPOR",
+      "topic": "HEOR",
+      "geoScope": "Global",
+      "importance": "High",
+      "requiresScreening": false,
+      "notes": "International Society for Pharmacoeconomics and Outcomes Research"
+    },
+    {
+      "id": 127,
+      "url": "https://www.has-sante.fr/jcms/fc_2875171/en/news",
+      "name": "HAS",
+      "topic": "HTA",
+      "geoScope": "France",
+      "importance": "High",
+      "requiresScreening": false,
+      "notes": "French National Authority for Health"
+    },
+    {
+      "id": 122,
+      "url": "https://www.nice.org.uk/news",
+      "name": "NICE",
+      "topic": "HTA",
+      "geoScope": "United Kingdom",
+      "importance": "High",
+      "requiresScreening": false,
+      "notes": "UK National Institute for Health and Care Excellence"
+    },
+    {
+      "id": 121,
+      "url": "https://www.ema.europa.eu/en/news",
+      "name": "EMA",
+      "topic": "Regulatory",
+      "geoScope": "Europe",
+      "importance": "High",
+      "requiresScreening": false,
+      "notes": "European Medicines Agency updates"
+    },
+    {
+      "id": 120,
+      "url": "https://www.fda.gov/news-events",
+      "name": "FDA News",
+      "topic": "Regulatory",
+      "geoScope": "United States",
+      "importance": "High",
+      "requiresScreening": false,
+      "notes": "US FDA regulatory updates and drug approvals"
+    }
+  ],
+  "capabilities": [
+    "web_search",
+    "content_aggregation",
+    "summary_generation",
+    "trend_analysis",
+    "regulatory_tracking",
+    "clinical_trial_monitoring"
+  ],
+  "parameters": {
+    "temperature": 0.7,
+    "max_tokens": 4000,
+    "model": "claude-3-opus-20240229"
+  },
+  "created_at": "2025-09-15T06:08:47.394Z",
+  "updated_at": "2025-09-15T06:08:47.394Z"
+}

@@ -1,0 +1,58 @@
+#!/bin/bash
+
+# Quick setup for enabling IAP on Cloud Run
+set -e
+
+PROJECT_ID=${GCP_PROJECT_ID:-"newsletter-1757943207"}
+REGION=${GCP_REGION:-"europe-west1"}
+SERVICE_NAME="catalyst-newsletter"
+
+echo "🚀 Quick IAP Setup for Cloud Run"
+echo "================================"
+
+# Set project
+gcloud config set project $PROJECT_ID
+
+# 1. Enable required APIs
+echo "1️⃣ Enabling required APIs..."
+gcloud services enable iap.googleapis.com \
+  cloudresourcemanager.googleapis.com \
+  iamcredentials.googleapis.com
+
+# 2. Remove public access if not already done
+echo "2️⃣ Securing Cloud Run service..."
+gcloud run services remove-iam-policy-binding $SERVICE_NAME \
+  --region=$REGION \
+  --member="allUsers" \
+  --role="roles/run.invoker" 2>/dev/null || echo "Already secured"
+
+# 3. Get service URL
+SERVICE_URL=$(gcloud run services describe $SERVICE_NAME --region $REGION --format 'value(status.url)')
+echo "Service URL: $SERVICE_URL"
+
+echo ""
+echo "✅ Prerequisites complete!"
+echo ""
+echo "📋 Now complete these manual steps in GCP Console:"
+echo ""
+echo "1. Create OAuth Client:"
+echo "   https://console.cloud.google.com/apis/credentials?project=$PROJECT_ID"
+echo "   - Click: Create Credentials > OAuth client ID"
+echo "   - Type: Web application"
+echo "   - Name: IAP-Cloud-Run-Client"
+echo ""
+echo "2. Enable IAP:"
+echo "   https://console.cloud.google.com/security/iap?project=$PROJECT_ID"
+echo "   - Find: $SERVICE_NAME"
+echo "   - Toggle: IAP to ON"
+echo "   - Select: OAuth client created above"
+echo ""
+echo "3. Grant Access (run this command for each user):"
+echo "   gcloud run services add-iam-policy-binding $SERVICE_NAME \\"
+echo "     --region=$REGION \\"
+echo "     --member='user:EMAIL@DOMAIN.COM' \\"
+echo "     --role='roles/iap.httpsResourceAccessor'"
+echo ""
+echo "4. Test:"
+echo "   Open: $SERVICE_URL"
+echo "   Should redirect to Google login"

@@ -1,0 +1,81 @@
+#!/bin/bash
+
+# Enable IAP for Cloud Run Service
+# This script should be run after the Cloud Run service is deployed
+
+set -e
+
+# Configuration
+PROJECT_ID=${GCP_PROJECT_ID:-"newsletter-1757943207"}
+REGION=${GCP_REGION:-"europe-west1"}
+SERVICE_NAME="catalyst-newsletter"
+
+echo "🛡️ Enabling Identity-Aware Proxy for Cloud Run service"
+echo "Project ID: $PROJECT_ID"
+echo "Region: $REGION"
+echo "Service: $SERVICE_NAME"
+
+# Set the project
+gcloud config set project $PROJECT_ID
+
+# Get the Cloud Run service URL
+SERVICE_URL=$(gcloud run services describe $SERVICE_NAME --region $REGION --format 'value(status.url)')
+echo "Service URL: $SERVICE_URL"
+
+# Update Cloud Run service to require authentication
+echo "🔒 Removing public access (allUsers invoker role)..."
+gcloud run services remove-iam-policy-binding $SERVICE_NAME \
+  --region $REGION \
+  --member="allUsers" \
+  --role="roles/run.invoker" 2>/dev/null || echo "Note: Public access was already disabled"
+
+echo ""
+echo "✅ IAP configuration updated!"
+echo ""
+echo "⚠️  Important: Complete these manual steps for Microsoft Entra federated authentication:"
+echo ""
+echo "1. Configure OAuth consent screen in GCP:"
+echo "   - Go to APIs & Services > OAuth consent screen"
+echo "   - Configure for your organization (internal or external)"
+echo ""
+echo "2. Set up Workforce Identity Federation with Microsoft Entra:"
+echo "   - Go to IAM & Admin > Workforce Identity Federation"
+echo "   - Create a new pool or use existing one"
+echo "   - Add Microsoft as OIDC provider:"
+echo "     • Issuer URL: https://login.microsoftonline.com/{tenant-id}/v2.0"
+echo "     • Audience: Application (client) ID from Azure AD"
+echo ""
+echo "3. Configure Microsoft Entra (Azure AD):"
+echo "   - In Azure Portal, go to Azure Active Directory > App registrations"
+echo "   - Create new registration or use existing"
+echo "   - Set redirect URI: https://auth.cloud.google.com/signin-callback/{pool-id}"
+echo "   - Note the Application (client) ID and Directory (tenant) ID"
+echo "   - Create a client secret under Certificates & secrets"
+echo ""
+echo "4. Create OAuth 2.0 Client for IAP:"
+echo "   - Go to APIs & Services > Credentials in GCP"
+echo "   - Create OAuth 2.0 Client ID"
+echo "   - Application type: Web application"
+echo "   - Add authorized redirect URIs for IAP"
+echo "   - Note the Client ID and Secret"
+echo ""
+echo "5. Important Note about Cloud Run and IAP:"
+echo "   ⚠️  IAP does NOT directly support Cloud Run services"
+echo "   Cloud Run uses its own built-in authentication mechanism"
+echo "   The Workforce Identity Federation works directly with Cloud Run"
+echo ""
+echo "6. Grant access using Cloud Run IAM (not IAP):"
+echo "   Use the gcloud command to grant access to federated identities"
+echo "   The authentication happens at the Cloud Run level, not through IAP"
+echo ""
+echo "7. Add IAM permissions for Microsoft Entra users:"
+echo "   - Use principal format: principal://iam.googleapis.com/locations/global/workforcePools/{pool-id}/subject/{user-email}"
+echo "   - Or for groups: principalSet://iam.googleapis.com/locations/global/workforcePools/{pool-id}/group/{group-id}"
+echo "   - Assign 'IAP-secured Web App User' role"
+echo ""
+echo "8. Test authentication:"
+echo "   - Visit: $SERVICE_URL"
+echo "   - You should be redirected to Microsoft login"
+echo "   - After successful auth, access should be granted based on Entra ID identity"
+echo ""
+echo "📝 Note: It may take a few minutes for IAP changes to propagate"

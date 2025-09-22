@@ -1,0 +1,63 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model NewsSource {
+  id                Int      @id @default(autoincrement())
+  website           String
+  topic             String
+  link              String
+  comment           String?
+  geoScope          String
+  importanceLevel   String?
+  requiresScreening Boolean  @default(false)
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([website, topic])
+  @@index([topic])
+  @@index([geoScope])
+  @@index([active])
+}
+
+model Newsletter {
+  id          Int      @id @default(autoincrement())
+  title       String
+  content     Json
+  sourcesUsed Json
+  parameters  Json
+  status      String   @default("draft")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model NewsletterGeneration {
+  id          Int       @id @default(autoincrement())
+  status      String    // pending, processing, completed, failed
+  config      Json
+  prompt      String    @db.Text
+  output      String?   @db.Text
+  error       String?
+  startedAt   DateTime
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}

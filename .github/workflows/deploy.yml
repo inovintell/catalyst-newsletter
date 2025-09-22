@@ -1,0 +1,82 @@
+name: Deploy to GCP
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  SERVICE_NAME: catalyst-newsletter
+  REGION: europe-west1
+  IMAGE: gcr.io/${{ secrets.GCP_PROJECT_ID }}/catalyst-newsletter
+
+jobs:
+  setup-build-deploy:
+    name: Setup, Build, and Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test --if-present
+
+      - name: Run linter
+        run: npm run lint --if-present
+
+      # Setup gcloud CLI
+      - name: Setup Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          export_default_credentials: true
+
+      # Configure Docker to use gcloud as credential helper
+      - name: Configure Docker
+        run: gcloud auth configure-docker
+
+      # Build and push Docker image
+      - name: Build Docker image
+        run: docker build -t ${{ env.IMAGE }}:${{ github.sha }} -t ${{ env.IMAGE }}:latest .
+
+      - name: Push Docker image
+        run: |
+          docker push ${{ env.IMAGE }}:${{ github.sha }}
+          docker push ${{ env.IMAGE }}:latest
+
+      # Deploy to Cloud Run
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image ${{ env.IMAGE }}:${{ github.sha }} \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --set-env-vars "NODE_ENV=production" \
+            --set-env-vars "CLAUDE_MODEL=claude-opus-4-1-20250805" \
+            --set-secrets "DATABASE_URL=database-url:latest" \
+            --set-secrets "ANTHROPIC_API_KEY=anthropic-api-key:latest" \
+            --memory 2Gi \
+            --cpu 2 \
+            --max-instances 10 \
+            --min-instances 1 \
+            --service-account ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Show deployment URL
+        run: |
+          echo "Deployment completed!"
+          gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region ${{ env.REGION }} \
+            --format 'value(status.url)'

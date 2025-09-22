@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: catalyst-newsletter-db
+    environment:
+      POSTGRES_USER: newsletter_user
+      POSTGRES_PASSWORD: newsletter_pass
+      POSTGRES_DB: catalyst_newsletter
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - newsletter-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U newsletter_user -d catalyst_newsletter"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: catalyst-newsletter-app
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://newsletter_user:newsletter_pass@postgres:5432/catalyst_newsletter?schema=public
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      CLAUDE_MODEL: claude-opus-4-1-20250805
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - newsletter-network
+    volumes:
+      - ./agent-configs:/app/agent-configs
+
+volumes:
+  postgres_data:
+
+networks:
+  newsletter-network:
+    driver: bridge
