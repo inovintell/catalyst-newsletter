@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 import { generateAgentPrompt, generateAgentConfig, type AgentConfiguration } from '@/lib/agent-config'
+import { withAuth } from '@/lib/auth/middleware'
 
 const prisma = new PrismaClient()
 
-export async function POST(request: NextRequest) {
+export const POST = withAuth(async (request: NextRequest, context) => {
   try {
     const body = await request.json()
     const { dateRange, selectedSources, outputFormat, includeExecutiveSummary, groupByTopic, topics, geoScopes } = body
@@ -69,4 +70,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
-}
+})
