@@ -41,6 +41,12 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/scripts/start.sh ./start.sh
+
+# Make start script executable
+RUN chmod +x ./start.sh
 
 # Set correct permissions
 RUN chown -R nextjs:nodejs /app
@@ -51,5 +57,5 @@ EXPOSE 3000
 
 ENV PORT 3000
 
-# Start the application
-CMD ["node", "server.js"]
+# Start the application with migrations
+CMD ["./start.sh"]

@@ -37,13 +37,14 @@ export async function POST(req: NextRequest) {
 
     const user = await validatePassword(email, password, tenantId);
     if (!user) {
+      console.log('Login failed for:', email, 'in tenant:', tenantId);
       return NextResponse.json(
         { error: 'Invalid email or password' },
         { status: 401 }
       );
     }
 
-    // Password validation is handled in validatePassword
+    console.log('Login successful for:', email);
 
     const role = user.role || tenant.settings.defaultRole || 'user';
     const permissions = user.permissions || [];

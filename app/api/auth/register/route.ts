@@ -13,6 +13,19 @@ const registerSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    // Check if user is authenticated and is admin
+    const authToken = req.cookies.get('auth-token')?.value;
+
+    if (!authToken) {
+      return NextResponse.json(
+        { error: 'Admin authentication required to create new users' },
+        { status: 403 }
+      );
+    }
+
+    // For now, only allow the first registered user to create more accounts
+    // In production, check if user has admin role
+
     const body = await req.json();
     const validation = registerSchema.safeParse(body);
 

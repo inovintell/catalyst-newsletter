@@ -7,9 +7,10 @@ on:
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  SERVICE_NAME: catalyst-newsletter
+  SERVICE_NAME: catalyst-newsletter-prod  # Production deployment from main branch
+  ENVIRONMENT: prod
   REGION: europe-west1
-  IMAGE: gcr.io/${{ secrets.GCP_PROJECT_ID }}/catalyst-newsletter
+  IMAGE: gcr.io/${{ secrets.GCP_PROJECT_ID }}/catalyst-newsletter-prod
 
 jobs:
   setup-build-deploy:
@@ -66,8 +67,11 @@ jobs:
             --allow-unauthenticated \
             --set-env-vars "NODE_ENV=production" \
             --set-env-vars "CLAUDE_MODEL=claude-opus-4-1-20250805" \
-            --set-secrets "DATABASE_URL=database-url:latest" \
-            --set-secrets "ANTHROPIC_API_KEY=anthropic-api-key:latest" \
+            --set-secrets "DATABASE_URL=catalyst-database-url-prod:latest" \
+            --set-secrets "ANTHROPIC_API_KEY=catalyst-anthropic-api-key-prod:latest" \
+            --set-secrets "JWT_SECRET=catalyst-jwt-secret-prod:latest" \
+            --set-secrets "ADMIN_PASSWORD=catalyst-admin-password-prod:latest" \
+            --add-cloudsql-instances "${{ secrets.GCP_PROJECT_ID }}:${{ env.REGION }}:newsletter-db" \
             --memory 2Gi \
             --cpu 2 \
             --max-instances 10 \

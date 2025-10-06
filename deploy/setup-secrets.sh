@@ -6,6 +6,7 @@ set -e
 # Configuration
 PROJECT_ID=${GCP_PROJECT_ID:-"newsletter-1757943207"}
 REGION=${GCP_REGION:-"europe-west1"}
+ENVIRONMENT=${ENVIRONMENT:-"prod"}  # Default to prod if not specified
 
 # Colors for output
 RED='\033[0;31m'
@@ -108,12 +109,12 @@ echo -e "${YELLOW}6️⃣ Verifying existing secrets...${NC}"
 # Check if other required secrets exist
 MISSING_SECRETS=()
 
-if ! gcloud secrets describe database-url --project=$PROJECT_ID &>/dev/null; then
-    MISSING_SECRETS+=("database-url")
+if ! gcloud secrets describe catalyst-database-url-${ENVIRONMENT} --project=$PROJECT_ID &>/dev/null; then
+    MISSING_SECRETS+=("catalyst-database-url-${ENVIRONMENT}")
 fi
 
-if ! gcloud secrets describe anthropic-api-key --project=$PROJECT_ID &>/dev/null; then
-    MISSING_SECRETS+=("anthropic-api-key")
+if ! gcloud secrets describe catalyst-anthropic-api-key-${ENVIRONMENT} --project=$PROJECT_ID &>/dev/null; then
+    MISSING_SECRETS+=("catalyst-anthropic-api-key-${ENVIRONMENT}")
 fi
 
 if [ ${#MISSING_SECRETS[@]} -gt 0 ]; then

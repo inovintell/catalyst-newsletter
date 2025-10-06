@@ -18,6 +18,34 @@ const JWT_SECRET = process.env.JWT_SECRET || 'development-secret-key-change-in-p
 
 const users = new Map<string, User>();
 
+// Initialize default admin user
+async function initializeDefaultAdmin() {
+  const adminEmail = process.env.ADMIN_EMAIL || 'pli@inovintell.com';
+  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+  const userKey = `default-tenant:${adminEmail}`;
+
+  if (!users.has(userKey)) {
+    const passwordHash = await bcrypt.hash(adminPassword, 10);
+    const adminUser: User = {
+      uid: 'admin_default',
+      email: adminEmail,
+      displayName: 'Administrator',
+      emailVerified: true,
+      tenantId: 'default-tenant',
+      role: 'admin',
+      permissions: ['manage:users', 'manage:tenants', 'manage:sources', 'manage:newsletters'],
+      passwordHash,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    users.set(userKey, adminUser);
+    console.log('Default admin user initialized:', adminEmail);
+  }
+}
+
+// Initialize on module load
+initializeDefaultAdmin().catch(console.error);
+
 export async function createUser(
   email: string,
   password: string,

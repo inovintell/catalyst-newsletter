@@ -1,14 +1,17 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { ensureArray } from '@/lib/validation'
+import ErrorBoundary from '@/components/ErrorBoundary'
 import SourceTable from '@/components/SourceTable'
 import SourceForm from '@/components/SourceForm'
 import SourceFilters from '@/components/SourceFilters'
 import CSVImport from '@/components/CSVImport'
 
-export default function SourcesPage() {
-  const [sources, setSources] = useState([])
+function SourcesPageContent() {
+  const [sources, setSources] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [showImport, setShowImport] = useState(false)
   const [editingSource, setEditingSource] = useState<any>(null)
@@ -24,6 +27,7 @@ export default function SourcesPage() {
 
   const fetchSources = async () => {
     setLoading(true)
+    setError(null)
     try {
       const params = new URLSearchParams()
       if (filters.topic) params.append('topic', filters.topic)
@@ -31,10 +35,21 @@ export default function SourcesPage() {
       if (filters.active) params.append('active', filters.active)
 
       const response = await fetch(`/api/sources?${params}`)
+
+      // Check if response was successful
+      if (!response.ok) {
+        throw new Error(`Failed to fetch sources: ${response.status} ${response.statusText}`)
+      }
+
       const data = await response.json()
-      setSources(data)
+
+      // Validate that data is an array before setting state
+      const validatedData = ensureArray(data, 'Sources API')
+      setSources(validatedData)
     } catch (error) {
       console.error('Error fetching sources:', error)
+      setError(error instanceof Error ? error.message : 'Failed to load sources. Please try again.')
+      setSources([]) // Set empty array on error
     } finally {
       setLoading(false)
     }
@@ -122,6 +137,22 @@ export default function SourcesPage() {
           <div className="text-center py-8">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-inovintell-blue"></div>
           </div>
+        ) : error ? (
+          <div className="text-center py-8">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md mx-auto">
+              <svg className="w-12 h-12 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <h3 className="text-lg font-semibold text-red-900 mb-2">Error Loading Sources</h3>
+              <p className="text-red-700 mb-4">{error}</p>
+              <button
+                onClick={fetchSources}
+                className="bg-inovintell-blue text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
         ) : (
           <SourceTable
             sources={sources}
@@ -149,5 +180,13 @@ export default function SourcesPage() {
         />
       )}
     </div>
+  )
+}
+
+export default function SourcesPage() {
+  return (
+    <ErrorBoundary>
+      <SourcesPageContent />
+    </ErrorBoundary>
   )
 }

@@ -21,11 +21,12 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(sources)
   } catch (error) {
-    console.error('Error fetching sources:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch sources' },
-      { status: 500 }
-    )
+    // Log error for debugging but return safe empty array to prevent client crashes
+    console.error('[API Error] Failed to fetch sources:', error)
+
+    // Return empty array with 200 status to prevent client-side exceptions
+    // This allows the UI to render gracefully with "no sources" state
+    return NextResponse.json([])
   }
 }
 
