@@ -1,3 +1,147 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Newsletter Renderer Custom Styles */
+@layer components {
+  .newsletter-renderer {
+    @apply text-gray-800;
+  }
+
+  /* Custom prose styles for newsletter rendering */
+  .prose {
+    @apply text-gray-800 leading-relaxed;
+  }
+
+  .prose h1 {
+    @apply text-4xl font-bold mb-4 mt-8;
+    background: linear-gradient(to right, #0EA5E9, #10B981);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .prose h2 {
+    @apply text-3xl font-bold mb-3 mt-6 text-blue-600;
+  }
+
+  .prose h3 {
+    @apply text-2xl font-semibold mb-2 mt-5 text-sky-700;
+  }
+
+  .prose h4 {
+    @apply text-xl font-semibold mb-2 mt-4 text-sky-800;
+  }
+
+  .prose a {
+    @apply text-blue-500 no-underline transition-colors duration-200;
+  }
+
+  .prose a:hover {
+    @apply text-blue-700 underline;
+  }
+
+  .prose ul,
+  .prose ol {
+    @apply ml-6 mb-4 space-y-2;
+  }
+
+  .prose ul {
+    @apply list-disc list-outside;
+  }
+
+  .prose ol {
+    @apply list-decimal list-outside;
+  }
+
+  .prose li {
+    @apply leading-relaxed;
+  }
+
+  .prose code {
+    @apply bg-gray-100 text-red-600 px-1.5 py-0.5 rounded text-sm font-mono;
+  }
+
+  .prose pre {
+    @apply bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto mb-4 border border-gray-700;
+  }
+
+  .prose pre code {
+    @apply bg-transparent text-gray-100 p-0;
+  }
+
+  .prose blockquote {
+    @apply border-l-4 border-green-500 pl-4 py-2 my-4 italic text-gray-600 bg-gray-50 rounded-r;
+  }
+
+  .prose table {
+    @apply w-full border-collapse mb-4 border border-gray-300;
+  }
+
+  .prose thead {
+    @apply bg-gray-100;
+  }
+
+  .prose th {
+    @apply px-4 py-3 text-left text-sm font-semibold text-gray-900 border border-gray-300;
+  }
+
+  .prose td {
+    @apply px-4 py-3 text-sm text-gray-700 border border-gray-300;
+  }
+
+  .prose img {
+    @apply max-w-full h-auto rounded-lg my-4 shadow-md;
+  }
+
+  .prose hr {
+    @apply my-8 border-t-2 border-gray-200;
+  }
+
+  .prose strong {
+    @apply font-bold text-gray-900;
+  }
+
+  .prose em {
+    @apply italic;
+  }
+
+  .prose del {
+    @apply line-through text-gray-500;
+  }
+}
+
+/* Print styles for newsletter */
+@media print {
+  .newsletter-renderer {
+    @apply max-w-none;
+  }
+
+  .prose h1 {
+    color: #0EA5E9 !important;
+    -webkit-text-fill-color: #0EA5E9 !important;
+  }
+
+  .prose a {
+    @apply text-blue-600 underline;
+  }
+}
+
+/* Responsive typography adjustments */
+@media (max-width: 640px) {
+  .prose h1 {
+    @apply text-3xl;
+  }
+
+  .prose h2 {
+    @apply text-2xl;
+  }
+
+  .prose h3 {
+    @apply text-xl;
+  }
+
+  .prose h4 {
+    @apply text-lg;
+  }
+}

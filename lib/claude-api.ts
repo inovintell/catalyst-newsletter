@@ -13,6 +13,44 @@ export interface ClaudeResponse {
   }
 }
 
+export interface ClaudeAPIErrorDetails {
+  type: 'authentication' | 'insufficient_credits' | 'rate_limit' | 'network' | 'unknown'
+  message: string
+  status?: number
+  prompt: string
+  details?: string
+  originalError?: any
+}
+
+export class ClaudeAPIError extends Error {
+  public type: ClaudeAPIErrorDetails['type']
+  public status?: number
+  public prompt: string
+  public details?: string
+  public originalError?: any
+
+  constructor(errorDetails: ClaudeAPIErrorDetails) {
+    super(errorDetails.message)
+    this.name = 'ClaudeAPIError'
+    this.type = errorDetails.type
+    this.status = errorDetails.status
+    this.prompt = errorDetails.prompt
+    this.details = errorDetails.details
+    this.originalError = errorDetails.originalError
+  }
+
+  toJSON() {
+    return {
+      name: this.name,
+      type: this.type,
+      message: this.message,
+      status: this.status,
+      prompt: this.prompt,
+      details: this.details
+    }
+  }
+}
+
 /**
  * Call Claude API to generate newsletter content
  */
@@ -56,18 +94,37 @@ export async function generateNewsletterWithClaude(prompt: string): Promise<Clau
       timestamp: new Date().toISOString()
     })
 
-    // Map common errors to user-friendly messages
+    // Determine error type and create detailed error
+    let errorType: ClaudeAPIErrorDetails['type'] = 'unknown'
+    let errorMessage = 'An unexpected error occurred while generating the newsletter'
+    let errorDetails = error?.message || 'No additional details available'
+
     if (error?.status === 401 || error?.status === 403) {
-      throw new Error('Service temporarily unavailable')
+      errorType = 'authentication'
+      errorMessage = 'Authentication failed. Invalid or missing API key.'
+      errorDetails = `Status ${error.status}: ${error?.message || 'Authentication error'}`
     } else if (error?.status === 429) {
-      throw new Error('Service temporarily unavailable')
+      errorType = 'rate_limit'
+      errorMessage = 'Rate limit exceeded. Too many requests in a short period.'
+      errorDetails = error?.message || 'Please wait before retrying'
     } else if (error?.message?.includes('credit') || error?.message?.includes('balance')) {
-      throw new Error('Service temporarily unavailable')
+      errorType = 'insufficient_credits'
+      errorMessage = 'Insufficient credits to complete this request.'
+      errorDetails = error?.message || 'Please add credits to your account'
     } else if (error?.code === 'ECONNREFUSED' || error?.code === 'ETIMEDOUT') {
-      throw new Error('Unable to connect to service')
+      errorType = 'network'
+      errorMessage = 'Network error: Unable to connect to Claude API.'
+      errorDetails = `${error?.code}: ${error?.message || 'Connection failed'}`
     }
 
-    throw new Error('Service temporarily unavailable')
+    throw new ClaudeAPIError({
+      type: errorType,
+      message: errorMessage,
+      status: error?.status,
+      prompt: prompt,
+      details: errorDetails,
+      originalError: error
+    })
   }
 }
 
@@ -108,17 +165,36 @@ export async function* streamNewsletterGeneration(prompt: string) {
       timestamp: new Date().toISOString()
     })
 
-    // Map common errors to user-friendly messages
+    // Determine error type and create detailed error
+    let errorType: ClaudeAPIErrorDetails['type'] = 'unknown'
+    let errorMessage = 'An unexpected error occurred while generating the newsletter'
+    let errorDetails = error?.message || 'No additional details available'
+
     if (error?.status === 401 || error?.status === 403) {
-      throw new Error('Service temporarily unavailable')
+      errorType = 'authentication'
+      errorMessage = 'Authentication failed. Invalid or missing API key.'
+      errorDetails = `Status ${error.status}: ${error?.message || 'Authentication error'}`
     } else if (error?.status === 429) {
-      throw new Error('Service temporarily unavailable')
+      errorType = 'rate_limit'
+      errorMessage = 'Rate limit exceeded. Too many requests in a short period.'
+      errorDetails = error?.message || 'Please wait before retrying'
     } else if (error?.message?.includes('credit') || error?.message?.includes('balance')) {
-      throw new Error('Service temporarily unavailable')
+      errorType = 'insufficient_credits'
+      errorMessage = 'Insufficient credits to complete this request.'
+      errorDetails = error?.message || 'Please add credits to your account'
     } else if (error?.code === 'ECONNREFUSED' || error?.code === 'ETIMEDOUT') {
-      throw new Error('Unable to connect to service')
+      errorType = 'network'
+      errorMessage = 'Network error: Unable to connect to Claude API.'
+      errorDetails = `${error?.code}: ${error?.message || 'Connection failed'}`
     }
 
-    throw new Error('Service temporarily unavailable')
+    throw new ClaudeAPIError({
+      type: errorType,
+      message: errorMessage,
+      status: error?.status,
+      prompt: prompt,
+      details: errorDetails,
+      originalError: error
+    })
   }
 }

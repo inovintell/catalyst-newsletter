@@ -137,26 +137,25 @@ export default function DashboardPage() {
       eventSource.addEventListener('error', (event: any) => {
         const data = event.data ? JSON.parse(event.data) : {}
         const errorMessage = data.message || 'Error generating newsletter'
-        const requestId = data.requestId
 
         setHasError(true)
         setGenerationStatus(errorMessage)
         eventSource.close()
 
-        // Show persistent toast notification with user-friendly message
-        if (requestId) {
-          showToast(
-            `Unable to generate newsletter. Please contact support with Reference ID: ${requestId}`,
-            'error'
-          )
-        } else {
-          showToast('Unable to generate newsletter. Please try again later.', 'error')
-        }
+        // Store error information in sessionStorage for output page
+        sessionStorage.setItem('newsletterError', JSON.stringify({
+          type: data.type || 'unknown',
+          message: errorMessage,
+          status: data.status,
+          prompt: data.prompt,
+          details: data.details
+        }))
+        sessionStorage.setItem('generationId', generationId)
 
-        // Keep error visible in GenerationProgress for 3 seconds before hiding
+        // Redirect to output page to show error details
         setTimeout(() => {
-          setGenerating(false)
-        }, 3000)
+          window.location.href = '/newsletters/output'
+        }, 1500)
       })
 
     } catch (error) {
