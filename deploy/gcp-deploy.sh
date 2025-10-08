@@ -5,7 +5,15 @@
 
 set -e
 
-# Configuration
+# Load environment variables early (before setting defaults)
+if [ -f .env.prod ]; then
+    echo "📋 Loading production environment variables from .env.prod..."
+    set -a
+    source .env.prod
+    set +a
+fi
+
+# Configuration (use environment variables if set, otherwise use defaults)
 PROJECT_ID=${GCP_PROJECT_ID:-"catalyst-newsletter"}
 REGION=${GCP_REGION:-"europe-west1"}
 SERVICE_NAME=${SERVICE_NAME:-"catalyst-newsletter"}
@@ -39,6 +47,49 @@ if ! gcloud auth list --filter=status:ACTIVE --format="value(account)" | grep -q
     exit 1
 fi
 
+echo "✅ Authenticated as: $(gcloud auth list --filter=status:ACTIVE --format='value(account)')"
+
+# Validate required environment variables
+echo ""
+echo "🔍 Validating environment configuration..."
+VALIDATION_FAILED=false
+
+if [ -z "$DATABASE_URL" ]; then
+    echo "⚠️  DATABASE_URL not set in environment"
+    VALIDATION_FAILED=true
+elif [[ ! "$DATABASE_URL" =~ @localhost/.*\?host=/cloudsql/ ]]; then
+    echo "❌ DATABASE_URL format incorrect!"
+    echo "   Expected: postgresql://USER:PASS@localhost/DATABASE?host=/cloudsql/PROJECT:REGION:INSTANCE&schema=public"
+    echo "   Got: ${DATABASE_URL:0:50}..."
+    VALIDATION_FAILED=true
+else
+    echo "✅ DATABASE_URL format valid"
+fi
+
+if [ -z "$ANTHROPIC_API_KEY" ]; then
+    echo "⚠️  ANTHROPIC_API_KEY not set in environment"
+    VALIDATION_FAILED=true
+else
+    echo "✅ ANTHROPIC_API_KEY set"
+fi
+
+if [ -z "$JWT_SECRET" ]; then
+    echo "⚠️  JWT_SECRET not set in environment (will be auto-generated)"
+else
+    echo "✅ JWT_SECRET set"
+fi
+
+if [ "$VALIDATION_FAILED" = true ]; then
+    echo ""
+    echo "❌ Validation failed. Please check your .env.prod file and ensure all required variables are set."
+    echo "   Required: DATABASE_URL, ANTHROPIC_API_KEY"
+    echo "   Optional: JWT_SECRET (auto-generated if not set)"
+    exit 1
+fi
+
+echo "✅ Environment validation passed"
+echo ""
+
 # Set the project
 echo "📌 Setting GCP project..."
 gcloud config set project ${PROJECT_ID} 2>/dev/null || {
@@ -59,7 +110,15 @@ gcloud services enable \
 
 # Build the Docker image
 echo "🏗️ Building Docker image..."
-docker build -t ${IMAGE_NAME} .
+
+# Detect platform and add --platform flag for Mac ARM64
+PLATFORM_FLAG=""
+if [[ $(uname -m) == "arm64" ]] && [[ $(uname -s) == "Darwin" ]]; then
+    echo "📱 Detected Mac ARM64 - building for linux/amd64 (Cloud Run compatibility)"
+    PLATFORM_FLAG="--platform linux/amd64"
+fi
+
+docker build ${PLATFORM_FLAG} -t ${IMAGE_NAME} .
 
 # Push to Google Container Registry
 echo "📤 Pushing image to GCR..."
@@ -81,12 +140,6 @@ create_secret_if_not_exists() {
             --project=${PROJECT_ID}
     fi
 }
-
-# Check for required environment variables
-if [ -f .env.prod ]; then
-    echo "📋 Loading production environment variables..."
-    source .env.prod
-fi
 
 # Create secrets for sensitive data with proper naming convention
 create_secret_if_not_exists "catalyst-jwt-secret-${ENVIRONMENT}" "${JWT_SECRET:-$(openssl rand -base64 32)}"
