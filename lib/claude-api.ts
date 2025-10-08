@@ -57,7 +57,7 @@ export class ClaudeAPIError extends Error {
 export async function generateNewsletterWithClaude(prompt: string): Promise<ClaudeResponse> {
   try {
     const message = await anthropic.messages.create({
-      model: process.env.CLAUDE_MODEL || 'claude-3-opus-20240229',
+      model: process.env.CLAUDE_MODEL || 'claude-sonnet-4-5-20250929',
       max_tokens: 4000,
       temperature: 0.7,
       messages: [
@@ -134,7 +134,7 @@ export async function generateNewsletterWithClaude(prompt: string): Promise<Clau
 export async function* streamNewsletterGeneration(prompt: string) {
   try {
     const stream = await anthropic.messages.create({
-      model: process.env.CLAUDE_MODEL || 'claude-3-opus-20240229',
+      model: process.env.CLAUDE_MODEL || 'claude-sonnet-4-5-20250929',
       max_tokens: 4000,
       temperature: 0.7,
       messages: [

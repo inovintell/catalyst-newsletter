@@ -132,7 +132,7 @@ gcloud run deploy $SERVICE_NAME \
   --platform managed \
   --allow-unauthenticated \
   --set-env-vars NODE_ENV=production \
-  --set-env-vars CLAUDE_MODEL=claude-opus-4-1-20250805 \
+  --set-env-vars CLAUDE_MODEL=claude-sonnet-4-5-20250929 \
   --set-secrets DATABASE_URL=catalyst-database-url-${ENVIRONMENT}:latest \
   --set-secrets ANTHROPIC_API_KEY=catalyst-anthropic-api-key-${ENVIRONMENT}:latest \
   --set-secrets JWT_SECRET=catalyst-jwt-secret-${ENVIRONMENT}:latest \
