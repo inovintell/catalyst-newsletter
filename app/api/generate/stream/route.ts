@@ -131,7 +131,30 @@ export async function GET(request: NextRequest) {
 
         // Get the selected sources
         const config = generation.config as any
+        console.log(`[${requestId}] Retrieved generation config:`, {
+          generationId,
+          configKeys: Object.keys(config || {}),
+          hasSelectedSources: !!config?.selectedSources,
+          selectedSourcesType: Array.isArray(config?.selectedSources) ? 'array' : typeof config?.selectedSources
+        })
+
         const selectedSourceIds = config.selectedSources || []
+        console.log(`[${requestId}] Extracted selectedSourceIds:`, {
+          count: selectedSourceIds.length,
+          ids: selectedSourceIds
+        })
+
+        // Validate we have source IDs
+        if (!selectedSourceIds || selectedSourceIds.length === 0) {
+          console.error(`[${requestId}] No source IDs found in config`)
+          sendEvent('error', {
+            message: 'No sources configured for this generation. The generation config is missing source IDs.',
+            generationId,
+            configSnapshot: JSON.stringify(config).substring(0, 500)
+          })
+          controller.close()
+          return
+        }
 
         const sources = await prisma.newsSource.findMany({
           where: {
@@ -143,6 +166,38 @@ export async function GET(request: NextRequest) {
             { topic: 'asc' }
           ]
         })
+
+        console.log(`[${requestId}] Database query results:`, {
+          requestedIds: selectedSourceIds,
+          foundCount: sources.length,
+          foundIds: sources.map(s => s.id),
+          foundNames: sources.map(s => s.website)
+        })
+
+        // Validate we found sources
+        if (sources.length === 0) {
+          console.error(`[${requestId}] No active sources found in database`, {
+            requestedIds: selectedSourceIds
+          })
+          sendEvent('error', {
+            message: 'No active sources found in database. The requested sources may be inactive or have been deleted.',
+            generationId,
+            requestedIds: selectedSourceIds
+          })
+
+          // Update generation status to failed
+          await prisma.newsletterGeneration.update({
+            where: { id: parseInt(generationId) },
+            data: {
+              status: 'failed',
+              error: 'No active sources found',
+              completedAt: new Date()
+            }
+          })
+
+          controller.close()
+          return
+        }
 
         sendEvent('status', { message: `Analyzing ${sources.length} sources...` })
 
@@ -166,12 +221,14 @@ ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 
 - Output Format: ${config.outputFormat || 'markdown'}
 
 ## Active Sources (${sources.length} total)
+Sources to fetch content from:
+
 ${sourceList}
 
 ## Task
 Generate a comprehensive HTA & Market Access Intelligence Update newsletter based on the above sources and parameters.
 
-Provide your final response as a structured newsletter draft in markdown format:
+Provide your final response as a structured newsletter draft in ${config.outputFormat || 'markdown'} format:
 
 # HTA & Market Access Intelligence Update
 ## [Current Date] - [Date Range Coverage]
