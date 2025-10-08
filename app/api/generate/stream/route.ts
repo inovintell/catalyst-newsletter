@@ -92,6 +92,10 @@ export async function GET(request: NextRequest) {
     )
   }
 
+  // Generate unique request ID for tracking
+  const requestId = crypto.randomUUID()
+  console.log(`[${requestId}] Starting newsletter generation for ID: ${generationId}`)
+
   const encoder = new TextEncoder()
 
   const stream = new ReadableStream({
@@ -207,21 +211,34 @@ Provide your final response as a structured newsletter draft in markdown format:
               sendEvent('content', { chunk })
             }
           } catch (apiError: any) {
-            console.error('Claude API error, falling back to mock:', apiError)
-            // Determine the specific error reason
-            let errorReason = 'API error'
-            if (apiError?.message?.includes('credit balance')) {
-              errorReason = 'Insufficient Anthropic API credits'
-            } else if (apiError?.status === 401) {
-              errorReason = 'Invalid API key'
-            }
+            // Log full technical API error details server-side
+            console.error(`[${requestId}] Claude API error:`, {
+              error: apiError,
+              status: apiError?.status,
+              message: apiError?.message,
+              stack: apiError?.stack,
+              timestamp: new Date().toISOString()
+            })
 
             // Fall back to mock if API fails
             newsletterContent = generateMockNewsletter(sources, config)
-            // Add error reason to the mock content
+
+            // Provide specific user feedback based on error type
+            let userMessage = '*Note: Using sample content - '
+
+            if (apiError?.message?.includes('credit balance') || apiError?.message?.includes('insufficient_credits')) {
+              userMessage += 'Please top up your Anthropic API credits at https://console.anthropic.com/settings/billing*'
+            } else if (apiError?.status === 401 || apiError?.status === 403) {
+              userMessage += 'Please check your Anthropic API key configuration*'
+            } else if (apiError?.status === 429) {
+              userMessage += 'API rate limit reached. Please try again later*'
+            } else {
+              userMessage += 'Unable to connect to AI service. Please try again later*'
+            }
+
             newsletterContent = newsletterContent.replace(
               '*Note: Using mock generation - check your Anthropic API credits or configure a valid ANTHROPIC_API_KEY*',
-              `*Note: Using mock generation due to: ${errorReason}*`
+              userMessage
             )
           }
         } else {
@@ -260,7 +277,16 @@ Provide your final response as a structured newsletter draft in markdown format:
         })
 
       } catch (error) {
-        console.error('Generation error:', error)
+        // Log full technical error details server-side with request ID
+        console.error(`[${requestId}] Generation error:`, {
+          generationId,
+          error: error instanceof Error ? {
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+          } : error,
+          timestamp: new Date().toISOString()
+        })
 
         await prisma.newsletterGeneration.update({
           where: { id: parseInt(generationId) },
@@ -271,9 +297,10 @@ Provide your final response as a structured newsletter draft in markdown format:
           }
         })
 
+        // Send user-friendly error message with request ID only
         sendEvent('error', {
-          message: 'Failed to generate newsletter',
-          error: error instanceof Error ? error.message : 'Unknown error'
+          message: 'We encountered an issue generating your newsletter.',
+          requestId: requestId
         })
       } finally {
         controller.close()

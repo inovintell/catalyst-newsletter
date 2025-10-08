@@ -34,7 +34,9 @@ function SourcesPageContent() {
       if (filters.geoScope) params.append('geoScope', filters.geoScope)
       if (filters.active) params.append('active', filters.active)
 
-      const response = await fetch(`/api/sources?${params}`)
+      const response = await fetch(`/api/sources?${params}`, {
+        credentials: 'include'
+      })
 
       // Check if response was successful
       if (!response.ok) {
@@ -73,7 +75,10 @@ function SourcesPageContent() {
     if (!confirm('Are you sure you want to delete this source?')) return
 
     try {
-      await fetch(`/api/sources/${id}`, { method: 'DELETE' })
+      await fetch(`/api/sources/${id}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      })
       fetchSources()
     } catch (error) {
       console.error('Error deleting source:', error)
@@ -91,6 +96,7 @@ function SourcesPageContent() {
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(sourceData)
       })
 

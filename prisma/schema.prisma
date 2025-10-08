@@ -61,3 +61,22 @@ model NewsletterGeneration {
   @@index([status])
   @@index([createdAt])
 }
+
+model User {
+  id            String   @id @default(cuid())
+  uid           String   @unique
+  email         String
+  passwordHash  String
+  displayName   String?
+  emailVerified Boolean  @default(false)
+  tenantId      String   @default("default-tenant")
+  role          String   @default("user")
+  permissions   Json     @default("[]")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([tenantId, email])
+  @@index([email])
+  @@index([tenantId])
+  @@index([uid])
+}
