@@ -43,9 +43,31 @@ export async function generateNewsletterWithClaude(prompt: string): Promise<Clau
         output_tokens: message.usage.output_tokens
       } : undefined
     }
-  } catch (error) {
-    console.error('Error calling Claude API:', error)
-    throw new Error('Failed to generate newsletter content')
+  } catch (error: any) {
+    // Log full technical error details server-side
+    console.error('Claude API error:', {
+      error,
+      status: error?.status,
+      statusText: error?.statusText,
+      message: error?.message,
+      code: error?.code,
+      type: error?.type,
+      stack: error?.stack,
+      timestamp: new Date().toISOString()
+    })
+
+    // Map common errors to user-friendly messages
+    if (error?.status === 401 || error?.status === 403) {
+      throw new Error('Service temporarily unavailable')
+    } else if (error?.status === 429) {
+      throw new Error('Service temporarily unavailable')
+    } else if (error?.message?.includes('credit') || error?.message?.includes('balance')) {
+      throw new Error('Service temporarily unavailable')
+    } else if (error?.code === 'ECONNREFUSED' || error?.code === 'ETIMEDOUT') {
+      throw new Error('Unable to connect to service')
+    }
+
+    throw new Error('Service temporarily unavailable')
   }
 }
 
@@ -73,8 +95,30 @@ export async function* streamNewsletterGeneration(prompt: string) {
         yield messageStreamEvent.delta.text
       }
     }
-  } catch (error) {
-    console.error('Error streaming from Claude API:', error)
-    throw new Error('Failed to stream newsletter content')
+  } catch (error: any) {
+    // Log full technical error details server-side
+    console.error('Claude API streaming error:', {
+      error,
+      status: error?.status,
+      statusText: error?.statusText,
+      message: error?.message,
+      code: error?.code,
+      type: error?.type,
+      stack: error?.stack,
+      timestamp: new Date().toISOString()
+    })
+
+    // Map common errors to user-friendly messages
+    if (error?.status === 401 || error?.status === 403) {
+      throw new Error('Service temporarily unavailable')
+    } else if (error?.status === 429) {
+      throw new Error('Service temporarily unavailable')
+    } else if (error?.message?.includes('credit') || error?.message?.includes('balance')) {
+      throw new Error('Service temporarily unavailable')
+    } else if (error?.code === 'ECONNREFUSED' || error?.code === 'ETIMEDOUT') {
+      throw new Error('Unable to connect to service')
+    }
+
+    throw new Error('Service temporarily unavailable')
   }
 }

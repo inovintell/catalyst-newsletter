@@ -31,9 +31,17 @@ export default function NewslettersPage() {
 
       const response = await fetch(url)
       const data = await response.json()
-      setNewsletters(data)
+
+      // Check if data is an array before setting
+      if (Array.isArray(data)) {
+        setNewsletters(data)
+      } else {
+        console.error('Invalid response format:', data)
+        setNewsletters([])
+      }
     } catch (error) {
       console.error('Error fetching newsletters:', error)
+      setNewsletters([])
     } finally {
       setLoading(false)
     }

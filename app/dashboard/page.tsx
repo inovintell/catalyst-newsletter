@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import NewsletterConfig from '@/components/NewsletterConfig'
 import SourceSelector from '@/components/SourceSelector'
 import GenerationProgress from '@/components/GenerationProgress'
+import { showToast } from '@/components/Toast'
 
 interface NewsletterConfiguration {
   dateRange: {
@@ -33,6 +34,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [generationStatus, setGenerationStatus] = useState('')
+  const [hasError, setHasError] = useState(false)
   const [config, setConfig] = useState<NewsletterConfiguration>({
     dateRange: {
       from: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -63,7 +65,9 @@ export default function DashboardPage() {
   const fetchSources = async () => {
     setLoading(true)
     try {
-      const response = await fetch('/api/sources?active=true')
+      const response = await fetch('/api/sources?active=true', {
+        credentials: 'include'
+      })
       const data = await response.json()
       setSources(data)
       // Initially select all sources
@@ -81,6 +85,7 @@ export default function DashboardPage() {
   const handleGenerateNewsletter = async () => {
     setGenerating(true)
     setGenerationStatus('Preparing configuration...')
+    setHasError(false)
 
     try {
       // Start generation process
@@ -89,6 +94,7 @@ export default function DashboardPage() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({
           dateRange: config.dateRange,
           selectedSources: config.selectedSources,
@@ -130,14 +136,38 @@ export default function DashboardPage() {
 
       eventSource.addEventListener('error', (event: any) => {
         const data = event.data ? JSON.parse(event.data) : {}
-        setGenerationStatus(data.message || 'Error generating newsletter')
+        const errorMessage = data.message || 'Error generating newsletter'
+        const requestId = data.requestId
+
+        setHasError(true)
+        setGenerationStatus(errorMessage)
         eventSource.close()
-        setGenerating(false)
+
+        // Show persistent toast notification with user-friendly message
+        if (requestId) {
+          showToast(
+            `Unable to generate newsletter. Please contact support with Reference ID: ${requestId}`,
+            'error'
+          )
+        } else {
+          showToast('Unable to generate newsletter. Please try again later.', 'error')
+        }
+
+        // Keep error visible in GenerationProgress for 3 seconds before hiding
+        setTimeout(() => {
+          setGenerating(false)
+        }, 3000)
       })
 
     } catch (error) {
       console.error('Error generating newsletter:', error)
+      setHasError(true)
       setGenerationStatus('Error generating newsletter')
+
+      // Show toast notification
+      showToast('Unable to generate newsletter. Please try again later.', 'error')
+
+      // Keep error visible for 3 seconds
       setTimeout(() => {
         setGenerating(false)
         setGenerationStatus('')
@@ -194,7 +224,7 @@ export default function DashboardPage() {
         </div>
 
         {generating && (
-          <GenerationProgress status={generationStatus} />
+          <GenerationProgress status={generationStatus} hasError={hasError} />
         )}
       </div>
     </div>

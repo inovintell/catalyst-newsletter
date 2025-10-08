@@ -36,8 +36,7 @@ export const GET = withAuth(
         { status: 500 }
       );
     }
-  },
-  { optional: true }
+  }
 );
 
 export const POST = withAuth(

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
-import { getCookie } from 'cookies-next';
 import { getUserById, verifyAuthToken } from './simple-auth';
 import { tenantManager, AuthUser } from './tenant-manager';
 
@@ -47,7 +46,7 @@ export function verifyJWT(token: string): JWTPayload | null {
 
 export async function getAuthContext(req: NextRequest): Promise<AuthContext> {
   const authHeader = req.headers.get('authorization');
-  const cookieToken = getCookie('auth-token', { req });
+  const cookieToken = req.cookies.get('auth-token')?.value;
   const token = authHeader?.replace('Bearer ', '') || cookieToken;
 
   if (!token || typeof token !== 'string') {
@@ -164,7 +163,7 @@ export function withAuth(
 export function getTenantFromRequest(req: NextRequest): string {
   const host = req.headers.get('host') || '';
   const tenantHeader = req.headers.get('x-tenant-id');
-  const tenantCookie = getCookie('tenant-id', { req });
+  const tenantCookie = req.cookies.get('tenant-id')?.value;
 
   if (tenantHeader && typeof tenantHeader === 'string') {
     return tenantHeader;

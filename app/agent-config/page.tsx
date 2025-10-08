@@ -15,7 +15,9 @@ export default function AgentConfigPage() {
 
   const fetchConfig = async () => {
     try {
-      const response = await fetch('/api/agent-config')
+      const response = await fetch('/api/agent-config', {
+        credentials: 'include'
+      })
       const data = await response.json()
       setConfig(data)
     } catch (error) {
@@ -29,7 +31,8 @@ export default function AgentConfigPage() {
     setUpdating(true)
     try {
       const response = await fetch('/api/sources/update-agent', {
-        method: 'POST'
+        method: 'POST',
+        credentials: 'include'
       })
 
       if (response.ok) {

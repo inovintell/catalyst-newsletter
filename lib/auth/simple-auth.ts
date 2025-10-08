@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { prisma } from '../db';
 
 export interface User {
   uid: string;
@@ -16,30 +17,43 @@ export interface User {
 
 const JWT_SECRET = process.env.JWT_SECRET || 'development-secret-key-change-in-production';
 
-const users = new Map<string, User>();
-
 // Initialize default admin user
 async function initializeDefaultAdmin() {
   const adminEmail = process.env.ADMIN_EMAIL || 'pli@inovintell.com';
   const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
-  const userKey = `default-tenant:${adminEmail}`;
+  const tenantId = 'default-tenant';
 
-  if (!users.has(userKey)) {
-    const passwordHash = await bcrypt.hash(adminPassword, 10);
-    const adminUser: User = {
-      uid: 'admin_default',
-      email: adminEmail,
-      displayName: 'Administrator',
-      emailVerified: true,
-      tenantId: 'default-tenant',
-      role: 'admin',
-      permissions: ['manage:users', 'manage:tenants', 'manage:sources', 'manage:newsletters'],
-      passwordHash,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    users.set(userKey, adminUser);
-    console.log('Default admin user initialized:', adminEmail);
+  try {
+    // Check if admin already exists in database
+    const existingAdmin = await prisma.user.findUnique({
+      where: {
+        tenantId_email: {
+          tenantId,
+          email: adminEmail,
+        },
+      },
+    });
+
+    if (!existingAdmin) {
+      const passwordHash = await bcrypt.hash(adminPassword, 10);
+      await prisma.user.create({
+        data: {
+          uid: 'admin_default',
+          email: adminEmail,
+          displayName: 'Administrator',
+          emailVerified: true,
+          tenantId,
+          role: 'admin',
+          permissions: ['manage:users', 'manage:tenants', 'manage:sources', 'manage:newsletters'],
+          passwordHash,
+        },
+      });
+      console.log('Default admin user created in database:', adminEmail);
+    } else {
+      console.log('Default admin user already exists in database:', adminEmail);
+    }
+  } catch (error) {
+    console.error('Failed to initialize default admin:', error);
   }
 }
 
@@ -52,50 +66,129 @@ export async function createUser(
   displayName?: string,
   tenantId: string = 'default-tenant'
 ): Promise<User | null> {
-  const userKey = `${tenantId}:${email}`;
+  try {
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
+      where: {
+        tenantId_email: {
+          tenantId,
+          email,
+        },
+      },
+    });
 
-  if (users.has(userKey)) {
+    if (existingUser) {
+      return null;
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const uid = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    const dbUser = await prisma.user.create({
+      data: {
+        uid,
+        email,
+        displayName,
+        emailVerified: false,
+        tenantId,
+        role: 'user',
+        permissions: [],
+        passwordHash,
+      },
+    });
+
+    // Convert to User interface format
+    const user: User = {
+      uid: dbUser.uid,
+      email: dbUser.email,
+      displayName: dbUser.displayName || undefined,
+      emailVerified: dbUser.emailVerified,
+      tenantId: dbUser.tenantId,
+      role: dbUser.role,
+      permissions: Array.isArray(dbUser.permissions) ? dbUser.permissions as string[] : [],
+      createdAt: dbUser.createdAt,
+      updatedAt: dbUser.updatedAt,
+    };
+
+    return user;
+  } catch (error) {
+    console.error('Failed to create user:', error);
     return null;
   }
-
-  const passwordHash = await bcrypt.hash(password, 10);
-  const uid = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-  const user: User = {
-    uid,
-    email,
-    displayName,
-    emailVerified: false,
-    tenantId,
-    role: 'user',
-    permissions: [],
-    passwordHash,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
-
-  users.set(userKey, user);
-  return user;
 }
 
 export async function getUserByEmail(
   email: string,
   tenantId: string = 'default-tenant'
 ): Promise<User | null> {
-  const userKey = `${tenantId}:${email}`;
-  return users.get(userKey) || null;
+  try {
+    const dbUser = await prisma.user.findUnique({
+      where: {
+        tenantId_email: {
+          tenantId,
+          email,
+        },
+      },
+    });
+
+    if (!dbUser) {
+      return null;
+    }
+
+    const user: User = {
+      uid: dbUser.uid,
+      email: dbUser.email,
+      displayName: dbUser.displayName || undefined,
+      emailVerified: dbUser.emailVerified,
+      tenantId: dbUser.tenantId,
+      role: dbUser.role,
+      permissions: Array.isArray(dbUser.permissions) ? dbUser.permissions as string[] : [],
+      passwordHash: dbUser.passwordHash,
+      createdAt: dbUser.createdAt,
+      updatedAt: dbUser.updatedAt,
+    };
+
+    return user;
+  } catch (error) {
+    console.error('Failed to get user by email:', error);
+    return null;
+  }
 }
 
 export async function getUserById(
   uid: string,
   tenantId: string = 'default-tenant'
 ): Promise<User | null> {
-  for (const [key, user] of users.entries()) {
-    if (user.uid === uid && user.tenantId === tenantId) {
-      return user;
+  try {
+    const dbUser = await prisma.user.findFirst({
+      where: {
+        uid,
+        tenantId,
+      },
+    });
+
+    if (!dbUser) {
+      return null;
     }
+
+    const user: User = {
+      uid: dbUser.uid,
+      email: dbUser.email,
+      displayName: dbUser.displayName || undefined,
+      emailVerified: dbUser.emailVerified,
+      tenantId: dbUser.tenantId,
+      role: dbUser.role,
+      permissions: Array.isArray(dbUser.permissions) ? dbUser.permissions as string[] : [],
+      passwordHash: dbUser.passwordHash,
+      createdAt: dbUser.createdAt,
+      updatedAt: dbUser.updatedAt,
+    };
+
+    return user;
+  } catch (error) {
+    console.error('Failed to get user by ID:', error);
+    return null;
   }
-  return null;
 }
 
 export async function validatePassword(
@@ -135,31 +228,44 @@ export function verifyAuthToken(token: string): any {
   }
 }
 
-export function updateUserRole(
+export async function updateUserRole(
   uid: string,
   role: string,
   tenantId: string = 'default-tenant'
-): boolean {
-  for (const [key, user] of users.entries()) {
-    if (user.uid === uid && user.tenantId === tenantId) {
-      user.role = role;
-      user.updatedAt = new Date();
-      users.set(key, user);
-      return true;
-    }
+): Promise<boolean> {
+  try {
+    const result = await prisma.user.updateMany({
+      where: {
+        uid,
+        tenantId,
+      },
+      data: {
+        role,
+      },
+    });
+
+    return result.count > 0;
+  } catch (error) {
+    console.error('Failed to update user role:', error);
+    return false;
   }
-  return false;
 }
 
-export function deleteUser(
+export async function deleteUser(
   uid: string,
   tenantId: string = 'default-tenant'
-): boolean {
-  for (const [key, user] of users.entries()) {
-    if (user.uid === uid && user.tenantId === tenantId) {
-      users.delete(key);
-      return true;
-    }
+): Promise<boolean> {
+  try {
+    const result = await prisma.user.deleteMany({
+      where: {
+        uid,
+        tenantId,
+      },
+    });
+
+    return result.count > 0;
+  } catch (error) {
+    console.error('Failed to delete user:', error);
+    return false;
   }
-  return false;
 }

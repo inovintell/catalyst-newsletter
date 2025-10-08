@@ -2,21 +2,34 @@
 
 interface GenerationProgressProps {
   status: string
+  hasError?: boolean
 }
 
-export default function GenerationProgress({ status }: GenerationProgressProps) {
+export default function GenerationProgress({ status, hasError = false }: GenerationProgressProps) {
   return (
     <div className="mt-4">
       <div className="flex items-center space-x-3">
         <div className="relative">
-          <div className="w-8 h-8 border-4 border-gray-200 rounded-full"></div>
-          <div className="absolute top-0 left-0 w-8 h-8 border-4 border-inovintell-blue rounded-full animate-spin border-t-transparent"></div>
+          {hasError ? (
+            <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
+              <svg className="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+            </div>
+          ) : (
+            <>
+              <div className="w-8 h-8 border-4 border-gray-200 rounded-full"></div>
+              <div className="absolute top-0 left-0 w-8 h-8 border-4 border-inovintell-blue rounded-full animate-spin border-t-transparent"></div>
+            </>
+          )}
         </div>
         <div className="flex-1">
-          <p className="text-sm text-gray-700">{status}</p>
-          <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
-            <div className="bg-gradient-to-r from-inovintell-blue to-inovintell-green h-2 rounded-full animate-pulse"></div>
-          </div>
+          <p className={`text-sm font-medium ${hasError ? 'text-red-700' : 'text-gray-700'}`}>{status}</p>
+          {!hasError && (
+            <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+              <div className="bg-gradient-to-r from-inovintell-blue to-inovintell-green h-2 rounded-full animate-pulse"></div>
+            </div>
+          )}
         </div>
       </div>
 
