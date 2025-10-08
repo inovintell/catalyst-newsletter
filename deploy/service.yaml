@@ -1,7 +1,9 @@
+# NOTE: This is a template file. Replace PROJECT_ID, REGION, and ENVIRONMENT with actual values.
+# For automated deployments, use gcp-deploy.sh or GitHub Actions instead.
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: catalyst-newsletter
+  name: catalyst-newsletter-ENVIRONMENT  # e.g., catalyst-newsletter-prod
   annotations:
     run.googleapis.com/launch-stage: GA
 spec:
@@ -37,15 +39,18 @@ spec:
               value: claude-opus-4-1-20250805
             - name: PORT
               value: "3000"
+            # Database connection string
+            # Format: postgresql://user:pass@/dbname?host=/cloudsql/PROJECT_ID:REGION:INSTANCE
+            # Example: postgresql://postgres:password@/newsletter?host=/cloudsql/my-project:us-central1:newsletter-db
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: database-url
+                  name: catalyst-database-url-ENVIRONMENT  # e.g., catalyst-database-url-prod
                   key: latest
             - name: ANTHROPIC_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: anthropic-api-key
+                  name: catalyst-anthropic-api-key-ENVIRONMENT  # e.g., catalyst-anthropic-api-key-prod
                   key: latest
             # Firebase/Identity Platform Configuration
             - name: NEXT_PUBLIC_FIREBASE_API_KEY

@@ -8,7 +8,8 @@ set -e
 # Configuration
 PROJECT_ID=${GCP_PROJECT_ID:-"newsletter-$(date +%s)"}
 REGION=${GCP_REGION:-"europe-west1"}
-SERVICE_NAME="catalyst-newsletter"
+ENVIRONMENT=${ENVIRONMENT:-"staging"}  # Default to staging for minimal setup
+SERVICE_NAME="catalyst-newsletter-${ENVIRONMENT}"
 DB_INSTANCE_NAME="newsletter-db"
 DB_NAME="catalyst_newsletter"
 DB_USER="newsletter_user"
@@ -95,10 +96,16 @@ echo -n "$DB_PASSWORD" | gcloud secrets create database-password --data-file=-
 
 # Database URL secret with actual password
 DATABASE_URL="postgresql://$DB_USER:$DB_PASSWORD@/$DB_NAME?host=/cloudsql/$PROJECT_ID:$REGION:$DB_INSTANCE_NAME"
-echo -n "$DATABASE_URL" | gcloud secrets create database-url --data-file=-
+echo -n "$DATABASE_URL" | gcloud secrets create catalyst-database-url-${ENVIRONMENT} --data-file=-
 
 # Anthropic API key (placeholder - update with actual key)
-echo -n "your-anthropic-api-key" | gcloud secrets create anthropic-api-key --data-file=-
+echo -n "your-anthropic-api-key" | gcloud secrets create catalyst-anthropic-api-key-${ENVIRONMENT} --data-file=-
+
+# JWT secret
+openssl rand -base64 32 | tr -d '\n' | gcloud secrets create catalyst-jwt-secret-${ENVIRONMENT} --data-file=-
+
+# Admin password (placeholder - update with actual password)
+echo -n "admin123" | gcloud secrets create catalyst-admin-password-${ENVIRONMENT} --data-file=-
 
 # Create service account for Cloud Run
 echo "🔑 Creating service account..."
@@ -133,8 +140,10 @@ gcloud run deploy $SERVICE_NAME \
   --allow-unauthenticated \
   --set-env-vars NODE_ENV=production \
   --set-env-vars CLAUDE_MODEL=claude-opus-4-1-20250805 \
-  --set-secrets DATABASE_URL=database-url:latest \
-  --set-secrets ANTHROPIC_API_KEY=anthropic-api-key:latest \
+  --set-secrets DATABASE_URL=catalyst-database-url-${ENVIRONMENT}:latest \
+  --set-secrets ANTHROPIC_API_KEY=catalyst-anthropic-api-key-${ENVIRONMENT}:latest \
+  --set-secrets JWT_SECRET=catalyst-jwt-secret-${ENVIRONMENT}:latest \
+  --set-secrets ADMIN_PASSWORD=catalyst-admin-password-${ENVIRONMENT}:latest \
   --add-cloudsql-instances $PROJECT_ID:$REGION:$DB_INSTANCE_NAME \
   --memory 512Mi \
   --cpu 1 \
@@ -158,7 +167,9 @@ echo "   - Min instances: 0 (scales to zero)"
 echo ""
 echo "⚠️  Important next steps:"
 echo "1. Update the Anthropic API key secret with your actual key:"
-echo "   echo -n 'your-actual-key' | gcloud secrets versions add anthropic-api-key --data-file=-"
+echo "   echo -n 'your-actual-key' | gcloud secrets versions add catalyst-anthropic-api-key-${ENVIRONMENT} --data-file=-"
+echo "2. Update the Admin password secret with your actual password:"
+echo "   echo -n 'your-admin-password' | gcloud secrets versions add catalyst-admin-password-${ENVIRONMENT} --data-file=-"
 echo "2. Run database migrations:"
 echo "   npm run migrate:deploy"
 echo "3. Configure Microsoft Entra authentication:"

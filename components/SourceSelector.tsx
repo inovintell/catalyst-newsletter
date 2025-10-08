@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { ensureArray } from '@/lib/validation'
 
 interface SourceSelectorProps {
   sources: any[]
@@ -14,11 +15,14 @@ export default function SourceSelector({ sources, loading, config, setConfig }: 
   const [topicFilter, setTopicFilter] = useState('all')
   const [geoFilter, setGeoFilter] = useState('all')
 
-  // Extract unique topics and geo scopes
-  const topics = [...new Set(sources.map(s => s.topic))].sort()
-  const geoScopes = [...new Set(sources.map(s => s.geoScope))].sort()
+  // Ensure sources is always an array to prevent crashes
+  const safeSources = ensureArray<any>(sources, 'SourceSelector')
 
-  const filteredSources = sources.filter(source => {
+  // Extract unique topics and geo scopes
+  const topics = [...new Set(safeSources.map(s => s.topic))].sort()
+  const geoScopes = [...new Set(safeSources.map(s => s.geoScope))].sort()
+
+  const filteredSources = safeSources.filter(source => {
     const matchesSearch = source.website.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           source.topic.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           source.comment?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -72,7 +76,7 @@ export default function SourceSelector({ sources, loading, config, setConfig }: 
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold">Select News Sources</h2>
         <div className="text-sm text-gray-600">
-          {config.selectedSources.length} of {sources.length} selected
+          {config.selectedSources.length} of {safeSources.length} selected
         </div>
       </div>
 
@@ -187,13 +191,13 @@ export default function SourceSelector({ sources, loading, config, setConfig }: 
         </div>
         <div className="text-center p-2 bg-gray-50 rounded">
           <div className="text-2xl font-bold text-gray-700">
-            {[...new Set(sources.filter(s => config.selectedSources.includes(s.id)).map(s => s.topic))].length}
+            {[...new Set(safeSources.filter(s => config.selectedSources.includes(s.id)).map(s => s.topic))].length}
           </div>
           <div className="text-gray-600">Topics</div>
         </div>
         <div className="text-center p-2 bg-gray-50 rounded">
           <div className="text-2xl font-bold text-gray-700">
-            {[...new Set(sources.filter(s => config.selectedSources.includes(s.id)).map(s => s.geoScope))].length}
+            {[...new Set(safeSources.filter(s => config.selectedSources.includes(s.id)).map(s => s.geoScope))].length}
           </div>
           <div className="text-gray-600">Regions</div>
         </div>

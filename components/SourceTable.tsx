@@ -1,5 +1,7 @@
 'use client'
 
+import { ensureArray } from '@/lib/validation'
+
 interface Source {
   id: number
   website: string
@@ -19,6 +21,9 @@ interface SourceTableProps {
 }
 
 export default function SourceTable({ sources, onEdit, onDelete }: SourceTableProps) {
+  // Ensure sources is always an array to prevent crashes
+  const safeSources = ensureArray<Source>(sources, 'SourceTable')
+
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full divide-y divide-gray-200">
@@ -45,7 +50,7 @@ export default function SourceTable({ sources, onEdit, onDelete }: SourceTablePr
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
-          {sources.map((source) => (
+          {safeSources.map((source) => (
             <tr key={source.id} className="hover:bg-gray-50">
               <td className="px-6 py-4">
                 <div>
@@ -126,7 +131,7 @@ export default function SourceTable({ sources, onEdit, onDelete }: SourceTablePr
           ))}
         </tbody>
       </table>
-      {sources.length === 0 && (
+      {safeSources.length === 0 && (
         <div className="text-center py-8 text-gray-500">
           No sources found. Add your first source to get started.
         </div>
