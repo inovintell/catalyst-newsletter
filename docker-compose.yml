@@ -30,7 +30,7 @@ services:
     environment:
       DATABASE_URL: postgresql://newsletter_user:newsletter_pass@postgres:5432/catalyst_newsletter?schema=public
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-      CLAUDE_MODEL: claude-opus-4-1-20250805
+      CLAUDE_MODEL: claude-sonnet-4-5-20250929
       NEXT_PUBLIC_APP_URL: http://localhost:3000
     depends_on:
       postgres:
