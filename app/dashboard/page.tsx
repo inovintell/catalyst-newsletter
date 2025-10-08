@@ -68,21 +68,63 @@ export default function DashboardPage() {
       const response = await fetch('/api/sources?active=true', {
         credentials: 'include'
       })
+
+      if (!response.ok) {
+        console.error('[Dashboard] Failed to fetch sources:', {
+          status: response.status,
+          statusText: response.statusText
+        })
+        showToast('Failed to load sources. Please refresh the page.', 'error')
+        return
+      }
+
       const data = await response.json()
+
+      console.log('[Dashboard] Sources fetched:', {
+        count: data.length,
+        sourceIds: data.map((s: any) => s.id),
+        sourceNames: data.map((s: any) => s.website)
+      })
+
+      if (!data || data.length === 0) {
+        console.warn('[Dashboard] No active sources available')
+        showToast('No active sources available. Please contact an administrator.', 'warning')
+      }
+
       setSources(data)
       // Initially select all sources
+      const selectedIds = data.map((s: any) => s.id)
       setConfig(prev => ({
         ...prev,
-        selectedSources: data.map((s: any) => s.id)
+        selectedSources: selectedIds
       }))
+
+      console.log('[Dashboard] Auto-selected sources:', {
+        count: selectedIds.length,
+        ids: selectedIds
+      })
     } catch (error) {
-      console.error('Error fetching sources:', error)
+      console.error('[Dashboard] Error fetching sources:', error)
+      showToast('Error loading sources. Please refresh the page.', 'error')
     } finally {
       setLoading(false)
     }
   }
 
   const handleGenerateNewsletter = async () => {
+    // Validate sources are selected before making API call
+    if (!config.selectedSources || config.selectedSources.length === 0) {
+      console.error('[Dashboard] No sources selected')
+      showToast('Please select at least one source before generating a newsletter.', 'error')
+      return
+    }
+
+    console.log('[Dashboard] Starting newsletter generation:', {
+      selectedSourcesCount: config.selectedSources.length,
+      selectedSourceIds: config.selectedSources,
+      dateRange: config.dateRange
+    })
+
     setGenerating(true)
     setGenerationStatus('Preparing configuration...')
     setHasError(false)
@@ -107,7 +149,12 @@ export default function DashboardPage() {
       })
 
       if (!response.ok) {
-        throw new Error('Failed to start generation')
+        const errorData = await response.json().catch(() => ({}))
+        console.error('[Dashboard] Generation request failed:', {
+          status: response.status,
+          error: errorData
+        })
+        throw new Error(errorData.error || 'Failed to start generation')
       }
 
       const { generationId } = await response.json()
