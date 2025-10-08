@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
-import { generateNewsletterWithClaude, streamNewsletterGeneration } from '@/lib/claude-api'
+import { generateNewsletterWithClaude, streamNewsletterGeneration, ClaudeAPIError } from '@/lib/claude-api'
 import { generateAgentConfig } from '@/lib/agent-manager'
 
 const prisma = new PrismaClient()
@@ -220,31 +220,67 @@ Provide your final response as a structured newsletter draft in markdown format:
               timestamp: new Date().toISOString()
             })
 
-            // Fall back to mock if API fails
-            newsletterContent = generateMockNewsletter(sources, config)
-
-            // Provide specific user feedback based on error type
-            let userMessage = '*Note: Using sample content - '
-
-            if (apiError?.message?.includes('credit balance') || apiError?.message?.includes('insufficient_credits')) {
-              userMessage += 'Please top up your Anthropic API credits at https://console.anthropic.com/settings/billing*'
-            } else if (apiError?.status === 401 || apiError?.status === 403) {
-              userMessage += 'Please check your Anthropic API key configuration*'
-            } else if (apiError?.status === 429) {
-              userMessage += 'API rate limit reached. Please try again later*'
+            // Send error event with prompt information to client
+            if (apiError instanceof ClaudeAPIError) {
+              sendEvent('error', {
+                type: apiError.type,
+                message: apiError.message,
+                status: apiError.status,
+                prompt: apiError.prompt,
+                details: apiError.details
+              })
             } else {
-              userMessage += 'Unable to connect to AI service. Please try again later*'
+              // Handle non-ClaudeAPIError cases
+              sendEvent('error', {
+                type: 'unknown',
+                message: apiError?.message || 'An unexpected error occurred',
+                status: apiError?.status,
+                prompt: agentPrompt,
+                details: apiError?.stack || 'No additional details available'
+              })
             }
 
-            newsletterContent = newsletterContent.replace(
-              '*Note: Using mock generation - check your Anthropic API credits or configure a valid ANTHROPIC_API_KEY*',
-              userMessage
-            )
+            // Mark generation as failed
+            await prisma.newsletterGeneration.update({
+              where: { id: parseInt(generationId) },
+              data: {
+                status: 'failed',
+                completedAt: new Date()
+              }
+            })
+
+            // End the stream with error
+            sendEvent('done', {
+              success: false,
+              error: apiError?.message || 'Generation failed'
+            })
+            controller.close()
+            return
           }
         } else {
-          // Use mock generation if no API key
-          console.log('No ANTHROPIC_API_KEY found, using mock generation')
-          newsletterContent = generateMockNewsletter(sources, config)
+          // No API key configured - send error
+          console.log('No ANTHROPIC_API_KEY found')
+          sendEvent('error', {
+            type: 'authentication',
+            message: 'ANTHROPIC_API_KEY is not configured',
+            prompt: agentPrompt,
+            details: 'Please configure ANTHROPIC_API_KEY environment variable'
+          })
+
+          await prisma.newsletterGeneration.update({
+            where: { id: parseInt(generationId) },
+            data: {
+              status: 'failed',
+              completedAt: new Date()
+            }
+          })
+
+          sendEvent('done', {
+            success: false,
+            error: 'ANTHROPIC_API_KEY is not configured'
+          })
+          controller.close()
+          return
         }
 
         sendEvent('status', { message: 'Formatting output...' })
