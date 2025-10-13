@@ -254,7 +254,7 @@ Provide your final response as a structured newsletter draft in ${config.outputF
 ### Upcoming Key Dates
 - Important deadlines, conferences, or expected decisions`
 
-        sendEvent('status', { message: 'Generating newsletter with Claude Opus 4.1...' })
+        sendEvent('status', { message: 'Generating newsletter with Claude AI...' })
 
         let newsletterContent = ''
 

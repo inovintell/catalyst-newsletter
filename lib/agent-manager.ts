@@ -68,7 +68,7 @@ export async function generateAgentConfig(): Promise<AgentConfig> {
     parameters: {
       temperature: 0.7,
       max_tokens: 4000,
-      model: 'claude-opus-4-1-20250805'
+      model: process.env.CLAUDE_MODEL || 'claude-sonnet-4-5-20250929'
     },
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
