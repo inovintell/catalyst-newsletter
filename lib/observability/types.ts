@@ -25,7 +25,7 @@ export interface ClaudeTraceMetadata {
   model: string;
   temperature?: number;
   maxTokens?: number;
-  operation: 'newsletter_generation' | 'refinement' | 'streaming_generation';
+  operation: 'newsletter_generation' | 'refinement' | 'streaming_generation' | 'agent_generation' | 'agent_streaming_generation';
   promptTokens?: number;
   completionTokens?: number;
   totalTokens?: number;
