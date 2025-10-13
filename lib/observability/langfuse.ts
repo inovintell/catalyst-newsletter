@@ -60,7 +60,8 @@ export function getLangfuseClient(): Langfuse | null {
       flushInterval: 1000, // 1 second
     });
 
-    console.log('Langfuse observability initialized successfully');
+    const environment = process.env.NODE_ENV || process.env.APP_ENV || 'local';
+    console.log(`Langfuse observability initialized successfully (environment: ${environment})`);
     return langfuseClient;
   } catch (error) {
     console.error('Failed to initialize Langfuse client:', error);
@@ -82,10 +83,16 @@ export function createGenerationTrace(
   }
 
   try {
+    const environment = process.env.NODE_ENV || process.env.APP_ENV || 'local';
+
     const trace = client.trace({
       name,
-      metadata,
+      metadata: {
+        ...metadata,
+        environment, // Add environment to metadata
+      },
       userId,
+      tags: [`env:${environment}`], // Add environment as tag for filtering
     });
 
     return {
@@ -94,6 +101,28 @@ export function createGenerationTrace(
   } catch (error) {
     console.error('Failed to create Langfuse trace:', error);
     return {};
+  }
+}
+
+/**
+ * Get an existing trace by ID to add generation spans to it
+ */
+export function getTraceById(traceId: string) {
+  const client = getLangfuseClient();
+  if (!client || !traceId) {
+    return null;
+  }
+
+  try {
+    // Get the trace by ID
+    const trace = client.trace({
+      id: traceId,
+    });
+
+    return trace;
+  } catch (error) {
+    console.error('Failed to retrieve Langfuse trace:', error);
+    return null;
   }
 }
 
@@ -121,13 +150,18 @@ export async function withGenerationTrace<T>(
   let generation;
 
   try {
+    const environment = process.env.NODE_ENV || process.env.APP_ENV || 'local';
+
     // Create a trace
     const trace = client.trace({
       name: config.name,
       userId: config.userId,
       sessionId: config.sessionId,
-      metadata: config.metadata,
-      tags: config.tags,
+      metadata: {
+        ...config.metadata,
+        environment, // Add environment to metadata
+      },
+      tags: [...(config.tags || []), `env:${environment}`], // Add environment tag
     });
 
     // Create a generation span
@@ -235,13 +269,18 @@ export async function withStreamingGenerationTrace<T>(
   let generation;
 
   try {
+    const environment = process.env.NODE_ENV || process.env.APP_ENV || 'local';
+
     // Create a trace
     const trace = client.trace({
       name: config.name,
       userId: config.userId,
       sessionId: config.sessionId,
-      metadata: config.metadata,
-      tags: config.tags,
+      metadata: {
+        ...config.metadata,
+        environment, // Add environment to metadata
+      },
+      tags: [...(config.tags || []), `env:${environment}`], // Add environment tag
     });
 
     // Create a generation span

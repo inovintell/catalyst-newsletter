@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
-import { withGenerationTrace } from './observability/langfuse'
+import { withGenerationTrace, getTraceById, getLangfuseClient } from './observability/langfuse'
 import type { ClaudeTracingConfig } from './observability/types'
 
 // Initialize the Anthropic client
@@ -173,11 +173,11 @@ export async function generateNewsletterWithClaude(
 }
 
 /**
- * Stream newsletter generation for real-time updates
+ * Stream newsletter generation for real-time updates with Langfuse tracing
  */
 export async function* streamNewsletterGeneration(
   prompt: string,
-  tracingConfig?: Partial<ClaudeTracingConfig>
+  tracingConfig?: Partial<ClaudeTracingConfig> & { traceId?: string }
 ) {
   const model = process.env.CLAUDE_MODEL || 'claude-sonnet-4-5-20250929'
   const maxTokens = 4000
@@ -198,9 +198,39 @@ export async function* streamNewsletterGeneration(
     tags: tracingConfig?.tags || ['newsletter', 'streaming', 'generation'],
   }
 
+  // Get Langfuse client and trace
+  const client = getLangfuseClient()
+  const traceId = tracingConfig?.traceId
+  const trace = traceId ? getTraceById(traceId) : null
+
+  let generation: any = null
+  const startTime = Date.now()
+
+  // Create generation span if we have a trace
+  if (trace) {
+    try {
+      const modelParameters: Record<string, string | number | boolean | string[] | null> = {
+        temperature,
+        maxTokens,
+      }
+
+      generation = trace.generation({
+        name: traceConfig.metadata.operation,
+        model,
+        modelParameters,
+        metadata: traceConfig.metadata as Record<string, unknown>,
+      })
+    } catch (error) {
+      console.error('Failed to create Langfuse generation span:', error)
+    }
+  }
+
+  // Token counters and content accumulation for usage tracking
+  let inputTokens = 0
+  let outputTokens = 0
+  let accumulatedOutput = ''
+
   try {
-    // Note: For streaming, we'll create the trace but token counting happens in the caller
-    // The trace will be finalized after the stream completes
     const stream = await anthropic.messages.create({
       model,
       max_tokens: maxTokens,
@@ -214,12 +244,62 @@ export async function* streamNewsletterGeneration(
       stream: true,
     })
 
+    // Process stream events and capture token usage
     for await (const messageStreamEvent of stream) {
+      // Capture token usage from message_start event
+      if (messageStreamEvent.type === 'message_start') {
+        const usage = (messageStreamEvent as any).message?.usage
+        if (usage) {
+          inputTokens = usage.input_tokens || 0
+        }
+      }
+
+      // Yield text deltas to the caller and accumulate for tracing
       if (
         messageStreamEvent.type === 'content_block_delta' &&
         messageStreamEvent.delta.type === 'text_delta'
       ) {
-        yield messageStreamEvent.delta.text
+        const textChunk = messageStreamEvent.delta.text
+        accumulatedOutput += textChunk
+        yield textChunk
+      }
+
+      // Capture final token usage from message_delta event
+      if (messageStreamEvent.type === 'message_delta') {
+        const usage = (messageStreamEvent as any).usage
+        if (usage) {
+          outputTokens = usage.output_tokens || 0
+        }
+      }
+    }
+
+    // Finalize the generation span with success metrics
+    if (generation) {
+      const endTime = Date.now()
+      const latencyMs = endTime - startTime
+      const totalTokens = inputTokens + outputTokens
+
+      try {
+        generation.end({
+          input: prompt,
+          output: accumulatedOutput,
+          metadata: {
+            ...traceConfig.metadata,
+            latencyMs,
+          },
+          usage: {
+            input: inputTokens,
+            output: outputTokens,
+            total: totalTokens,
+          },
+        })
+
+        // Flush to ensure data is sent
+        if (client) {
+          await client.flushAsync()
+        }
+      } catch (error) {
+        console.error('Failed to finalize Langfuse generation span:', error)
       }
     }
   } catch (error: any) {
@@ -234,6 +314,34 @@ export async function* streamNewsletterGeneration(
       stack: error?.stack,
       timestamp: new Date().toISOString()
     })
+
+    // Capture error in generation span
+    if (generation) {
+      const endTime = Date.now()
+      const latencyMs = endTime - startTime
+
+      try {
+        generation.end({
+          metadata: {
+            ...traceConfig.metadata,
+            latencyMs,
+            error: {
+              type: error instanceof Error ? error.constructor.name : 'Unknown',
+              message: error instanceof Error ? error.message : String(error),
+              stack: error instanceof Error ? error.stack : undefined,
+            },
+          },
+          level: 'ERROR',
+        })
+
+        // Flush error trace
+        if (client) {
+          await client.flushAsync()
+        }
+      } catch (flushError) {
+        console.error('Failed to flush Langfuse error trace:', flushError)
+      }
+    }
 
     // Determine error type and create detailed error
     let errorType: ClaudeAPIErrorDetails['type'] = 'unknown'

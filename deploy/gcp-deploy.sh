@@ -103,6 +103,9 @@ gcloud config set project ${PROJECT_ID} 2>/dev/null || {
     exit 1
 }
 
+# Get project number for service account
+PROJECT_NUMBER=$(gcloud projects describe ${PROJECT_ID} --format="value(projectNumber)")
+
 # Enable required APIs
 echo "🔧 Enabling required GCP APIs..."
 gcloud services enable \
@@ -152,21 +155,73 @@ create_secret_if_not_exists "catalyst-database-url-${ENVIRONMENT}" "${DATABASE_U
 create_secret_if_not_exists "catalyst-anthropic-api-key-${ENVIRONMENT}" "${ANTHROPIC_API_KEY}"
 create_secret_if_not_exists "catalyst-admin-password-${ENVIRONMENT}" "${ADMIN_PASSWORD:-admin123}"
 
+# Create secrets for Langfuse observability (if keys are provided)
+if [ -n "$LANGFUSE_PUBLIC_KEY" ]; then
+    create_secret_if_not_exists "catalyst-langfuse-public-key-${ENVIRONMENT}" "${LANGFUSE_PUBLIC_KEY}"
+    # Grant Cloud Run service account access to the secret
+    gcloud secrets add-iam-policy-binding "catalyst-langfuse-public-key-${ENVIRONMENT}" \
+        --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+        --role="roles/secretmanager.secretAccessor" \
+        --project="${PROJECT_ID}" --quiet 2>/dev/null || true
+fi
+if [ -n "$LANGFUSE_SECRET_KEY" ]; then
+    create_secret_if_not_exists "catalyst-langfuse-secret-key-${ENVIRONMENT}" "${LANGFUSE_SECRET_KEY}"
+    # Grant Cloud Run service account access to the secret
+    gcloud secrets add-iam-policy-binding "catalyst-langfuse-secret-key-${ENVIRONMENT}" \
+        --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+        --role="roles/secretmanager.secretAccessor" \
+        --project="${PROJECT_ID}" --quiet 2>/dev/null || true
+fi
+
 # Deploy to Cloud Run
 echo "🚀 Deploying to Cloud Run..."
+
+# Build environment variables list
+ENV_VARS="NODE_ENV=production"
+ENV_VARS="${ENV_VARS},GCP_PROJECT_ID=${PROJECT_ID}"
+ENV_VARS="${ENV_VARS},DEFAULT_TENANT_ID=${DEFAULT_TENANT_ID:-default-tenant}"
+ENV_VARS="${ENV_VARS},ADMIN_EMAIL=${ADMIN_EMAIL:-admin@inovintell.com}"
+ENV_VARS="${ENV_VARS},CLAUDE_MODEL=${CLAUDE_MODEL:-claude-sonnet-4-5-20250929}"
+ENV_VARS="${ENV_VARS},AGENT_CONFIG_PATH=${AGENT_CONFIG_PATH:-./agent-configs}"
+ENV_VARS="${ENV_VARS},AGENT_AUTO_UPDATE=${AGENT_AUTO_UPDATE:-true}"
+ENV_VARS="${ENV_VARS},JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}"
+ENV_VARS="${ENV_VARS},JWT_REFRESH_EXPIRES_IN=${JWT_REFRESH_EXPIRES_IN:-30d}"
+ENV_VARS="${ENV_VARS},LANGFUSE_HOST=${LANGFUSE_HOST:-https://cloud.langfuse.com}"
+ENV_VARS="${ENV_VARS},LANGFUSE_ENABLED=${LANGFUSE_ENABLED:-true}"
+ENV_VARS="${ENV_VARS},LANGFUSE_TRACING_ENVIRONMENT=${LANGFUSE_TRACING_ENVIRONMENT:-${ENVIRONMENT}}"
+
+# Add NEXT_PUBLIC_APP_URL if set
+if [ -n "$NEXT_PUBLIC_APP_URL" ]; then
+    ENV_VARS="${ENV_VARS},NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}"
+fi
+
+# Add AGENT_UPDATE_WEBHOOK if set
+if [ -n "$AGENT_UPDATE_WEBHOOK" ]; then
+    ENV_VARS="${ENV_VARS},AGENT_UPDATE_WEBHOOK=${AGENT_UPDATE_WEBHOOK}"
+fi
+
+# Build secrets list
+SECRETS="JWT_SECRET=catalyst-jwt-secret-${ENVIRONMENT}:latest"
+SECRETS="${SECRETS},DATABASE_URL=catalyst-database-url-${ENVIRONMENT}:latest"
+SECRETS="${SECRETS},ANTHROPIC_API_KEY=catalyst-anthropic-api-key-${ENVIRONMENT}:latest"
+SECRETS="${SECRETS},ADMIN_PASSWORD=catalyst-admin-password-${ENVIRONMENT}:latest"
+
+# Add Langfuse secrets if they exist
+if [ -n "$LANGFUSE_PUBLIC_KEY" ]; then
+    SECRETS="${SECRETS},LANGFUSE_PUBLIC_KEY=catalyst-langfuse-public-key-${ENVIRONMENT}:latest"
+fi
+if [ -n "$LANGFUSE_SECRET_KEY" ]; then
+    SECRETS="${SECRETS},LANGFUSE_SECRET_KEY=catalyst-langfuse-secret-key-${ENVIRONMENT}:latest"
+fi
+
+# Execute deployment
 gcloud run deploy ${SERVICE_NAME} \
     --image ${IMAGE_NAME} \
     --platform managed \
     --region ${REGION} \
     --allow-unauthenticated \
-    --set-env-vars="NODE_ENV=production" \
-    --set-env-vars="GCP_PROJECT_ID=${PROJECT_ID}" \
-    --set-env-vars="DEFAULT_TENANT_ID=default-tenant" \
-    --set-env-vars="ADMIN_EMAIL=${ADMIN_EMAIL:-admin@inovintell.com}" \
-    --set-secrets="JWT_SECRET=catalyst-jwt-secret-${ENVIRONMENT}:latest" \
-    --set-secrets="DATABASE_URL=catalyst-database-url-${ENVIRONMENT}:latest" \
-    --set-secrets="ANTHROPIC_API_KEY=catalyst-anthropic-api-key-${ENVIRONMENT}:latest" \
-    --set-secrets="ADMIN_PASSWORD=catalyst-admin-password-${ENVIRONMENT}:latest" \
+    --set-env-vars="${ENV_VARS}" \
+    --set-secrets="${SECRETS}" \
     --add-cloudsql-instances="${PROJECT_ID}:${REGION}:newsletter-db" \
     --memory 1Gi \
     --cpu 1 \

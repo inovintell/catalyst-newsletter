@@ -262,8 +262,10 @@ Provide your final response as a structured newsletter draft in ${config.outputF
         if (process.env.ANTHROPIC_API_KEY) {
           try {
             // Use the real Claude API with streaming and tracing
+            // Pass the traceId from the generation record to link to the parent trace
             for await (const chunk of streamNewsletterGeneration(agentPrompt, {
               name: 'Newsletter Streaming Generation',
+              traceId: generation.traceId || undefined, // Link to parent trace
               metadata: {
                 model: process.env.CLAUDE_MODEL || 'claude-sonnet-4-5-20250929',
                 temperature: 0.7,
