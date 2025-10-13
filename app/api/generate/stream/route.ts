@@ -261,8 +261,21 @@ Provide your final response as a structured newsletter draft in ${config.outputF
         // Check if we have an API key to use real Claude
         if (process.env.ANTHROPIC_API_KEY) {
           try {
-            // Use the real Claude API with streaming
-            for await (const chunk of streamNewsletterGeneration(agentPrompt)) {
+            // Use the real Claude API with streaming and tracing
+            for await (const chunk of streamNewsletterGeneration(agentPrompt, {
+              name: 'Newsletter Streaming Generation',
+              metadata: {
+                model: process.env.CLAUDE_MODEL || 'claude-sonnet-4-5-20250929',
+                temperature: 0.7,
+                maxTokens: 4000,
+                operation: 'streaming_generation',
+                generationId,
+                sourcesCount: sources.length,
+                dateRange: config.dateRange,
+                outputFormat: config.outputFormat,
+              },
+              tags: ['newsletter', 'streaming', 'generation'],
+            })) {
               newsletterContent += chunk
               // Send chunks to client for real-time display
               sendEvent('content', { chunk })

@@ -1,4 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { withGenerationTrace } from './observability/langfuse'
+import type { ClaudeTracingConfig } from './observability/types'
 
 // Initialize the Anthropic client
 const anthropic = new Anthropic({
@@ -54,32 +56,74 @@ export class ClaudeAPIError extends Error {
 /**
  * Call Claude API to generate newsletter content
  */
-export async function generateNewsletterWithClaude(prompt: string): Promise<ClaudeResponse> {
-  try {
-    const message = await anthropic.messages.create({
-      model: process.env.CLAUDE_MODEL || 'claude-sonnet-4-5-20250929',
-      max_tokens: 4000,
-      temperature: 0.7,
-      messages: [
-        {
-          role: 'user',
-          content: prompt
-        }
-      ]
-    })
+export async function generateNewsletterWithClaude(
+  prompt: string,
+  tracingConfig?: Partial<ClaudeTracingConfig>
+): Promise<ClaudeResponse> {
+  const model = process.env.CLAUDE_MODEL || 'claude-sonnet-4-5-20250929'
+  const maxTokens = 4000
+  const temperature = 0.7
 
-    // Extract text content from the response
-    const content = message.content
-      .filter(block => block.type === 'text')
-      .map(block => (block as any).text)
-      .join('\n')
+  // Prepare tracing configuration
+  const traceConfig: ClaudeTracingConfig = {
+    name: tracingConfig?.name || 'Newsletter Generation',
+    metadata: {
+      model,
+      temperature,
+      maxTokens,
+      operation: 'newsletter_generation',
+      ...tracingConfig?.metadata,
+    },
+    userId: tracingConfig?.userId,
+    sessionId: tracingConfig?.sessionId,
+    tags: tracingConfig?.tags || ['newsletter', 'generation'],
+  }
+
+  try {
+    // Wrap the API call with tracing
+    const tracedResult = await withGenerationTrace(
+      traceConfig,
+      async () => {
+        const message = await anthropic.messages.create({
+          model,
+          max_tokens: maxTokens,
+          temperature,
+          messages: [
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+        })
+
+        // Extract text content from the response
+        const content = message.content
+          .filter((block) => block.type === 'text')
+          .map((block) => (block as any).text)
+          .join('\n')
+
+        return {
+          message,
+          content,
+        }
+      },
+      (result) => ({
+        promptTokens: result.message.usage?.input_tokens || 0,
+        completionTokens: result.message.usage?.output_tokens || 0,
+        totalTokens:
+          (result.message.usage?.input_tokens || 0) +
+          (result.message.usage?.output_tokens || 0),
+      })
+    )
 
     return {
-      content,
-      usage: message.usage ? {
-        input_tokens: message.usage.input_tokens,
-        output_tokens: message.usage.output_tokens
-      } : undefined
+      content: tracedResult.result.content,
+      usage: tracedResult.usage
+        ? {
+            input_tokens: tracedResult.usage.promptTokens,
+            output_tokens: tracedResult.usage.completionTokens,
+          }
+        : undefined,
     }
   } catch (error: any) {
     // Log full technical error details server-side
@@ -131,24 +175,50 @@ export async function generateNewsletterWithClaude(prompt: string): Promise<Clau
 /**
  * Stream newsletter generation for real-time updates
  */
-export async function* streamNewsletterGeneration(prompt: string) {
+export async function* streamNewsletterGeneration(
+  prompt: string,
+  tracingConfig?: Partial<ClaudeTracingConfig>
+) {
+  const model = process.env.CLAUDE_MODEL || 'claude-sonnet-4-5-20250929'
+  const maxTokens = 4000
+  const temperature = 0.7
+
+  // Prepare tracing configuration
+  const traceConfig: ClaudeTracingConfig = {
+    name: tracingConfig?.name || 'Newsletter Streaming Generation',
+    metadata: {
+      model,
+      temperature,
+      maxTokens,
+      operation: 'streaming_generation',
+      ...tracingConfig?.metadata,
+    },
+    userId: tracingConfig?.userId,
+    sessionId: tracingConfig?.sessionId,
+    tags: tracingConfig?.tags || ['newsletter', 'streaming', 'generation'],
+  }
+
   try {
+    // Note: For streaming, we'll create the trace but token counting happens in the caller
+    // The trace will be finalized after the stream completes
     const stream = await anthropic.messages.create({
-      model: process.env.CLAUDE_MODEL || 'claude-sonnet-4-5-20250929',
-      max_tokens: 4000,
-      temperature: 0.7,
+      model,
+      max_tokens: maxTokens,
+      temperature,
       messages: [
         {
           role: 'user',
-          content: prompt
-        }
+          content: prompt,
+        },
       ],
-      stream: true
+      stream: true,
     })
 
     for await (const messageStreamEvent of stream) {
-      if (messageStreamEvent.type === 'content_block_delta' &&
-          messageStreamEvent.delta.type === 'text_delta') {
+      if (
+        messageStreamEvent.type === 'content_block_delta' &&
+        messageStreamEvent.delta.type === 'text_delta'
+      ) {
         yield messageStreamEvent.delta.text
       }
     }

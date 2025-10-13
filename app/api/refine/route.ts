@@ -1,69 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { generateNewsletterWithClaude } from '@/lib/claude-api'
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { generationId, content, refinementPrompt, selectedSection } = body
 
-    // Simulate AI refinement processing
-    await new Promise(resolve => setTimeout(resolve, 2000))
+    // Build refinement prompt for Claude
+    const fullPrompt = `You are a professional newsletter editor. Your task is to refine the following newsletter content based on the user's instructions.
 
-    // Mock refinement based on prompt
-    let refinedContent = content
+USER INSTRUCTIONS: ${refinementPrompt}
 
-    // Apply mock refinements based on common prompts
-    if (refinementPrompt.toLowerCase().includes('concise')) {
-      // Make it more concise (trim some content)
-      refinedContent = content
-        .split('\n')
-        .filter((line: string, index: number) => index % 2 === 0 || line.startsWith('#'))
-        .join('\n')
-    } else if (refinementPrompt.toLowerCase().includes('detail')) {
-      // Add more detail
-      refinedContent = content.replace(
-        /## (.*)/g,
-        '## $1\n\n*[Additional detailed analysis and context would be added here by the AI agent]*\n'
-      )
-    } else if (refinementPrompt.toLowerCase().includes('executive')) {
-      // Simplify for executives
-      refinedContent = `# Executive Newsletter Summary
+${selectedSection !== 'all' ? `SECTION TO REFINE: ${selectedSection}\nOnly refine the specified section while keeping the rest unchanged.` : 'Refine the entire newsletter content.'}
 
-## Key Takeaways
-- Major regulatory changes impacting market access
-- New pricing agreements in key markets
-- Critical clinical trial results affecting portfolio
+ORIGINAL CONTENT:
+${content}
 
-## Strategic Implications
-${content.split('\n').slice(0, 10).join('\n')}
+Please provide the refined version of the newsletter. Maintain the same structure and format (markdown) but apply the requested refinements. Return only the refined content without any explanations or meta-commentary.`
 
-## Recommended Actions
-1. Review pricing strategy for upcoming launches
-2. Monitor competitor responses to regulatory changes
-3. Prepare for market access negotiations
-
----
-*Simplified from full newsletter content*`
-    } else if (refinementPrompt.toLowerCase().includes('technical')) {
-      // Make more technical
-      refinedContent = content.replace(
-        /([A-Z]{2,})/g,
-        '$1 (see technical appendix for detailed methodology)'
-      )
-    } else {
-      // Generic refinement - add a note about the refinement
-      refinedContent = `*[Refined based on: "${refinementPrompt}"]*\n\n${content}`
-    }
-
-    // Handle section-specific refinement
-    if (selectedSection !== 'all') {
-      refinedContent = `*[Section "${selectedSection}" has been refined]*\n\n${refinedContent}`
-    }
+    // Use Claude API with tracing for refinement
+    const response = await generateNewsletterWithClaude(fullPrompt, {
+      name: 'Newsletter Refinement',
+      metadata: {
+        model: process.env.CLAUDE_MODEL || 'claude-sonnet-4-5-20250929',
+        temperature: 0.7,
+        maxTokens: 4000,
+        operation: 'refinement',
+        generationId,
+        refinementPrompt,
+        selectedSection,
+        originalContentLength: content.length,
+      },
+      tags: ['newsletter', 'refinement'],
+    })
 
     return NextResponse.json({
       success: true,
-      refinedContent,
+      refinedContent: response.content,
       refinementApplied: refinementPrompt,
-      section: selectedSection
+      section: selectedSection,
+      usage: response.usage,
     })
 
   } catch (error) {
