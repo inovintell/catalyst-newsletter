@@ -25,13 +25,17 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: catalyst-newsletter-app
+    env_file:
+      - .env.local
     ports:
       - "3000:3000"
     environment:
+      # Override database URL for Docker network
       DATABASE_URL: postgresql://newsletter_user:newsletter_pass@postgres:5432/catalyst_newsletter?schema=public
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-      CLAUDE_MODEL: claude-sonnet-4-5-20250929
-      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      # Set environment for Langfuse tracing
+      NODE_ENV: development
+      APP_ENV: local
+      LANGFUSE_TRACING_ENVIRONMENT: local
     depends_on:
       postgres:
         condition: service_healthy

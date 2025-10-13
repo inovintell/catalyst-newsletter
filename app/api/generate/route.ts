@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
 import { generateAgentPrompt, generateAgentConfig, type AgentConfiguration } from '@/lib/agent-config'
 import { withAuth } from '@/lib/auth/middleware'
+import { createGenerationTrace } from '@/lib/observability/langfuse'
 
 const prisma = new PrismaClient()
 
@@ -82,6 +83,21 @@ export const POST = withAuth(async (request: NextRequest, context) => {
     // Generate agent configuration file
     const configFile = generateAgentConfig(sources)
 
+    // Create Langfuse trace for this generation request
+    const traceContext = createGenerationTrace(
+      'Newsletter Generation Request',
+      {
+        dateRange,
+        sourcesCount: sources.length,
+        outputFormat,
+        includeExecutiveSummary,
+        groupByTopic,
+        topics,
+        geoScopes,
+      },
+      context.user?.email || undefined // Use user email as userId if available
+    )
+
     // Store generation request in database
     const generation = await prisma.newsletterGeneration.create({
       data: {
@@ -91,7 +107,8 @@ export const POST = withAuth(async (request: NextRequest, context) => {
           selectedSources: selectedSources // Explicitly store selectedSources IDs
         } as any,
         prompt,
-        startedAt: new Date()
+        startedAt: new Date(),
+        traceId: traceContext.traceId || null
       }
     })
 
