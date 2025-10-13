@@ -5,27 +5,32 @@
 
 set -e
 
+# Determine environment from script argument or default to prod
+ENVIRONMENT=${1:-"prod"}
+
+# Validate environment
+if [[ ! "$ENVIRONMENT" =~ ^(prod|staging)$ ]]; then
+    echo "❌ Invalid environment: $ENVIRONMENT"
+    echo "Usage: $0 [prod|staging]"
+    exit 1
+fi
+
 # Load environment variables early (before setting defaults)
-if [ -f .env.prod ]; then
-    echo "📋 Loading production environment variables from .env.prod..."
+ENV_FILE=".env.${ENVIRONMENT}"
+if [ -f "$ENV_FILE" ]; then
+    echo "📋 Loading ${ENVIRONMENT} environment variables from ${ENV_FILE}..."
     set -a
-    source .env.prod
+    source "$ENV_FILE"
     set +a
+else
+    echo "⚠️  Environment file ${ENV_FILE} not found, using defaults and environment variables"
 fi
 
 # Configuration (use environment variables if set, otherwise use defaults)
 PROJECT_ID=${GCP_PROJECT_ID:-"catalyst-newsletter"}
 REGION=${GCP_REGION:-"europe-west1"}
-SERVICE_NAME=${SERVICE_NAME:-"catalyst-newsletter"}
-
-# Extract environment from SERVICE_NAME (e.g., catalyst-newsletter-prod -> prod)
-if [[ $SERVICE_NAME == *-prod ]]; then
-    ENVIRONMENT="prod"
-elif [[ $SERVICE_NAME == *-staging ]]; then
-    ENVIRONMENT="staging"
-else
-    ENVIRONMENT="prod"  # default to prod if not specified
-fi
+# Always append environment suffix to service name
+SERVICE_NAME="catalyst-newsletter-${ENVIRONMENT}"
 IMAGE_NAME="gcr.io/${PROJECT_ID}/${SERVICE_NAME}"
 
 echo "🚀 Deploying Catalyst Newsletter to GCP"

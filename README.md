@@ -75,7 +75,7 @@ Catalyst Newsletter Generator is a comprehensive application that automates the 
 - **Frontend**: Next.js 14, TypeScript, Tailwind CSS
 - **Backend**: Next.js API Routes, Prisma ORM
 - **Database**: PostgreSQL (Docker)
-- **AI Integration**: Anthropic Claude API (Opus 4.1)
+- **AI Integration**: Anthropic Claude API (Configurable model)
 - **Deployment**: Google Cloud Platform, Cloud Run
 - **CI/CD**: GitHub Actions
 
@@ -111,7 +111,7 @@ NEXT_PUBLIC_APP_URL="http://localhost:3000"
 
 # Claude API Configuration
 ANTHROPIC_API_KEY="your-anthropic-api-key-here"
-CLAUDE_MODEL="claude-opus-4-1-20250805"
+CLAUDE_MODEL="claude-sonnet-4-5-20250929" # Default model, can be changed to any supported Claude model
 
 # Agent Configuration (optional)
 AGENT_UPDATE_WEBHOOK="https://your-webhook-url.com/agent-update"

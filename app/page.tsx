@@ -150,7 +150,7 @@ export default function Home() {
               </li>
               <li className="flex items-start">
                 <span className="font-bold mr-2">3.</span>
-                <span>Generate newsletter using Claude Opus 4.1 agent</span>
+                <span>Generate newsletter using Claude AI agent</span>
               </li>
               <li className="flex items-start">
                 <span className="font-bold mr-2">4.</span>
