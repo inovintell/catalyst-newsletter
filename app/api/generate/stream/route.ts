@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
-import { generateNewsletterWithClaude, streamNewsletterGeneration, ClaudeAPIError } from '@/lib/claude-api'
+import { streamNewsletterAgent, ClaudeAPIError } from '@/lib/claude-agent'
 import { generateAgentConfig } from '@/lib/agent-manager'
 
 const prisma = new PrismaClient()
@@ -252,31 +252,38 @@ Provide your final response as a structured newsletter draft in ${config.outputF
 - Bullet points of patterns observed across sources
 
 ### Upcoming Key Dates
-- Important deadlines, conferences, or expected decisions`
+- Important deadlines, conferences, or expected decisions
+
+IMPORTANT: Provide ONLY the newsletter content in the format specified above.
+- Do NOT include any follow-up questions like "Would you like me to..."
+- Do NOT offer additional actions or suggestions
+- The newsletter should be complete and ready to publish as-is
+- End cleanly with the last content section without any conversational additions`
 
         sendEvent('status', { message: 'Generating newsletter with Claude AI...' })
 
         let newsletterContent = ''
 
-        // Check if we have an API key to use real Claude
+        // Check if we have an API key to use real Claude Agent
         if (process.env.ANTHROPIC_API_KEY) {
           try {
-            // Use the real Claude API with streaming and tracing
+            // Use the Claude Agent SDK with streaming and tracing
             // Pass the traceId from the generation record to link to the parent trace
-            for await (const chunk of streamNewsletterGeneration(agentPrompt, {
-              name: 'Newsletter Streaming Generation',
+            for await (const chunk of streamNewsletterAgent(agentPrompt, {
+              name: 'Newsletter Agent Streaming Generation',
               traceId: generation.traceId || undefined, // Link to parent trace
               metadata: {
                 model: process.env.CLAUDE_MODEL || 'claude-sonnet-4-5-20250929',
                 temperature: 0.7,
-                maxTokens: 4000,
-                operation: 'streaming_generation',
+                maxTokens: 8000,
+                operation: 'agent_streaming_generation',
                 generationId,
                 sourcesCount: sources.length,
                 dateRange: config.dateRange,
                 outputFormat: config.outputFormat,
+                agentTools: ['WebFetch', 'WebSearch', 'Read', 'Write'],
               },
-              tags: ['newsletter', 'streaming', 'generation'],
+              tags: ['newsletter', 'streaming', 'generation', 'agent'],
             })) {
               newsletterContent += chunk
               // Send chunks to client for real-time display

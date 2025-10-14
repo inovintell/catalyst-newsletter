@@ -43,6 +43,7 @@ COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/node_modules/@anthropic-ai ./node_modules/@anthropic-ai
 COPY --from=builder /app/scripts/start.sh ./start.sh
 
 # Make start script executable

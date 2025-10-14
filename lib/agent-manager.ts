@@ -160,6 +160,12 @@ When invoked, you must follow these steps:
    - Emerging trends section
    - Upcoming events/deadlines if identified
 
+   **CRITICAL: The output must be complete and final.**
+   - Do NOT include any follow-up questions, suggestions, or conversational elements
+   - Do NOT ask "Would you like me to..." or offer additional actions
+   - The newsletter should end with the final content section without any additional commentary
+   - Provide ONLY the newsletter content in the format specified above
+
 **Best Practices:**
 - **MANDATORY: Always check and analyze ALL content from 100% important sources**
 - **Always include the current date/year in search queries** to ensure most recent results
