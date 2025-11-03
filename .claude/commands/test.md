@@ -1,12 +1,12 @@
 # Application Validation Test Suite
 
-Execute comprehensive validation tests for both frontend and backend components, returning results in a standardized JSON format for automated processing.
+Execute comprehensive validation tests for the Next.js monolithic application, returning results in a standardized JSON format for automated processing.
 
 ## Purpose
 
 Proactively identify and fix issues in the application before they impact users or developers. By running this comprehensive test suite, you can:
 - Detect syntax errors, type mismatches, and import failures
-- Identify broken tests or security vulnerabilities  
+- Identify broken tests or security vulnerabilities
 - Verify build processes and dependencies
 - Ensure the application is in a healthy state
 
@@ -29,47 +29,20 @@ TEST_COMMAND_TIMEOUT: 5 minutes
   - Capture stderr output for error field
   - Timeout commands after `TEST_COMMAND_TIMEOUT`
   - IMPORTANT: If a test fails, stop processing tests and return the results thus far
-- Some tests may have dependencies (e.g., server must be stopped for port availability)
-- API health check is required
 - Test execution order is important - dependencies should be validated first
 - All file paths are relative to the project root
-- Always run `pwd` and `cd` before each test to ensure you're operating in the correct directory for the given test
 
 ## Test Execution Sequence
 
-### Backend Tests
-
-1. **Python Syntax Check**
-   - Preparation Command: None
-   - Command: `cd app/server && uv run python -m py_compile server.py main.py core/*.py`
-   - test_name: "python_syntax_check"
-   - test_purpose: "Validates Python syntax by compiling source files to bytecode, catching syntax errors like missing colons, invalid indentation, or malformed statements"
-
-2. **Backend Code Quality Check**
-   - Preparation Command: None
-   - Command: `cd app/server && uv run ruff check .`
-   - test_name: "backend_linting"
-   - test_purpose: "Validates Python code quality, identifies unused imports, style violations, and potential bugs"
-
-3. **All Backend Tests**
-   - Preparation Command: None
-   - Command: `cd app/server && uv run pytest tests/ -v --tb=short`
-   - test_name: "all_backend_tests"
-   - test_purpose: "Validates all backend functionality including file processing, SQL security, LLM integration, and API endpoints"
-
-### Frontend Tests
-
-4. **TypeScript Type Check**
-   - Preparation Command: None
-   - Command: `cd app/client && bun tsc --noEmit`
+1. **TypeScript Type Check**
+   - Command: `npm run lint`
    - test_name: "typescript_check"
-   - test_purpose: "Validates TypeScript type correctness without generating output files, catching type errors, missing imports, and incorrect function signatures"
+   - test_purpose: "Validates TypeScript type correctness and code quality using Next.js linting, catching type errors, missing imports, and incorrect function signatures"
 
-5. **Frontend Build**
-   - Preparation Command: None
-   - Command: `cd app/client && bun run build`
-   - test_name: "frontend_build"
-   - test_purpose: "Validates the complete frontend build process including bundling, asset optimization, and production compilation"
+2. **Next.js Build**
+   - Command: `npm run build`
+   - test_name: "nextjs_build"
+   - test_purpose: "Validates the complete Next.js build process including TypeScript compilation, bundling, API routes, server components, and production optimization"
 
 ## Report
 
