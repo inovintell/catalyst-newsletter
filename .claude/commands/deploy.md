@@ -1,1 +1,1 @@
-sh ./deploy.sh
+sh ./deploy/gcp-deploy.sh
