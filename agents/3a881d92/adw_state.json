@@ -1,0 +1,12 @@
+{
+  "adw_id": "3a881d92",
+  "issue_number": "11",
+  "branch_name": "feature-issue-11-adw-3a881d92-import-sources-from-excel",
+  "plan_file": "specs/issue-11-adw-3a881d92-sdlc_planner-excel-source-import.md",
+  "issue_class": "/feature",
+  "worktree_path": null,
+  "backend_port": null,
+  "frontend_port": null,
+  "model_set": "base",
+  "all_adws": []
+}
