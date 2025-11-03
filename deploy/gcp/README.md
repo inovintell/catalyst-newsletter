@@ -4,8 +4,7 @@
 
 1. **Google Cloud Account** with billing enabled
 2. **gcloud CLI** installed and configured
-3. **Terraform** installed (v1.0 or higher)
-4. **Docker** installed for building images
+3. **Docker** installed for building images
 
 ## Setup Instructions
 
@@ -20,38 +19,26 @@ gcloud config set project catalyst-newsletter-prod
 
 # Enable billing (required for services)
 # Visit: https://console.cloud.google.com/billing
+
+# Enable required APIs
+gcloud services enable run.googleapis.com
+gcloud services enable secretmanager.googleapis.com
+gcloud services enable identitytoolkit.googleapis.com
 ```
 
-### 2. Configure Terraform Variables
+### 2. Configure Secrets
+
+Create secrets in Secret Manager for sensitive configuration:
 
 ```bash
-# Copy the example file
-cp terraform.tfvars.example terraform.tfvars
+# Create database URL secret
+echo -n "postgresql://user:password@host:5432/dbname" | gcloud secrets create database-url --data-file=-
 
-# Edit with your values
-nano terraform.tfvars
+# Create Anthropic API key secret
+echo -n "your-anthropic-api-key" | gcloud secrets create anthropic-api-key --data-file=-
 ```
 
-Required values:
-- `project_id`: Your GCP project ID
-- `database_url`: PostgreSQL connection string
-- `anthropic_api_key`: Your Claude API key
-- `domain_name`: Your domain (e.g., catalyst.inovintell.com)
-
-### 3. Initialize Terraform
-
-```bash
-# Initialize Terraform
-terraform init
-
-# Review the deployment plan
-terraform plan
-
-# Apply the configuration
-terraform apply
-```
-
-### 4. Build and Push Docker Image
+### 3. Build and Push Docker Image
 
 ```bash
 # Build the production image
@@ -64,9 +51,9 @@ gcloud auth configure-docker
 docker push gcr.io/[PROJECT_ID]/catalyst-newsletter:latest
 ```
 
-### 5. Deploy Application
+### 4. Deploy Application
 
-After Terraform creates the infrastructure:
+Deploy the Cloud Run service with required environment variables:
 
 ```bash
 # Deploy the Cloud Run service
@@ -74,21 +61,21 @@ gcloud run deploy catalyst-newsletter \
   --image gcr.io/[PROJECT_ID]/catalyst-newsletter:latest \
   --platform managed \
   --region europe-west1 \
-  --allow-unauthenticated
+  --allow-unauthenticated \
+  --set-secrets="DATABASE_URL=database-url:latest,ANTHROPIC_API_KEY=anthropic-api-key:latest" \
+  --set-env-vars="NODE_ENV=production"
 ```
 
-### 6. Configure DNS
+### 5. Configure DNS (Optional)
 
-Point your domain to the Load Balancer IP:
+Point your domain to the Cloud Run service URL:
 
 ```bash
-# Get the IP address
-terraform output load_balancer_ip
+# Get the service URL
+gcloud run services describe catalyst-newsletter --region europe-west1 --format="value(status.url)"
 
-# Add an A record in your DNS provider:
-# Type: A
-# Name: catalyst (or @)
-# Value: [LOAD_BALANCER_IP]
+# Add domain mapping (optional)
+gcloud run domain-mappings create --service catalyst-newsletter --domain your-domain.com --region europe-west1
 ```
 
 ## Post-Deployment
@@ -131,42 +118,54 @@ gcloud run deploy catalyst-newsletter \
 
 ```bash
 # List revisions
-gcloud run revisions list --service=catalyst-newsletter
+gcloud run revisions list --service=catalyst-newsletter --region europe-west1
 
 # Rollback to previous revision
 gcloud run services update-traffic catalyst-newsletter \
-  --to-revisions=[PREVIOUS_REVISION]=100
+  --to-revisions=[PREVIOUS_REVISION]=100 \
+  --region europe-west1
 ```
 
 ## Destroy Resources
 
 ```bash
-# Remove all resources (WARNING: This will delete everything)
-terraform destroy
+# Delete the Cloud Run service
+gcloud run services delete catalyst-newsletter --region europe-west1
+
+# Delete secrets
+gcloud secrets delete database-url
+gcloud secrets delete anthropic-api-key
+
+# Delete container images (optional)
+gcloud container images delete gcr.io/[PROJECT_ID]/catalyst-newsletter:latest
 ```
 
 ## Troubleshooting
 
 ### View Logs
 ```bash
-gcloud run logs read --service=catalyst-newsletter
+gcloud run logs read --service=catalyst-newsletter --region europe-west1
 ```
 
 ### Check Service Status
 ```bash
-gcloud run services describe catalyst-newsletter
+gcloud run services describe catalyst-newsletter --region europe-west1
 ```
 
 ### Update Secrets
 ```bash
-gcloud secrets versions add [SECRET_NAME] --data-file=-
+# Update a secret with new value
+echo -n "new-secret-value" | gcloud secrets versions add [SECRET_NAME] --data-file=-
+
+# Redeploy to use new secret version
+gcloud run services update catalyst-newsletter --region europe-west1
 ```
 
 ## Cost Estimates
 
-- **Cloud Run**: ~$5-10/month for light usage
+- **Cloud Run**: ~$5-10/month for light usage (free tier covers 2M requests/month)
 - **Identity Platform**: Free tier covers 50,000 MAU
 - **Secret Manager**: ~$0.06/month per secret
-- **Load Balancer**: ~$18/month
+- **Container Registry**: ~$0.026/GB/month for storage
 
-Total: ~$25-35/month for production deployment
+Total: ~$5-15/month for production deployment (mostly covered by free tier for small usage)

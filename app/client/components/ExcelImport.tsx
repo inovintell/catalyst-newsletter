@@ -2,12 +2,12 @@
 
 import { useState } from 'react'
 
-interface CSVImportProps {
+interface ExcelImportProps {
   onImportComplete: () => void
   onCancel: () => void
 }
 
-export default function CSVImport({ onImportComplete, onCancel }: CSVImportProps) {
+export default function ExcelImport({ onImportComplete, onCancel }: ExcelImportProps) {
   const [file, setFile] = useState<File | null>(null)
   const [importing, setImporting] = useState(false)
   const [result, setResult] = useState<any>(null)
@@ -43,8 +43,8 @@ export default function CSVImport({ onImportComplete, onCancel }: CSVImportProps
         }, 3000)
       }
     } catch (error) {
-      console.error('Error importing CSV:', error)
-      setResult({ error: 'Failed to import CSV file' })
+      console.error('Error importing Excel:', error)
+      setResult({ error: 'Failed to import Excel file' })
     } finally {
       setImporting(false)
     }
@@ -54,24 +54,27 @@ export default function CSVImport({ onImportComplete, onCancel }: CSVImportProps
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4" style={{ zIndex: 9999 }}>
       <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-auto shadow-2xl">
         <div className="p-6">
-          <h2 className="text-2xl font-bold mb-6">Import Sources from CSV</h2>
+          <h2 className="text-2xl font-bold mb-6">Import Sources from Excel</h2>
 
           <div className="mb-6">
-            <p className="text-sm text-gray-600 mb-4">
-              Upload a CSV file with the following format:
+            <p className="text-sm text-gray-600 mb-2">
+              Upload an Excel file (.xlsx or .xls) with the following format:
             </p>
-            <div className="bg-gray-50 p-3 rounded text-xs font-mono">
-              Website;Topic;Link;Comment;Geo scope
+            <div className="bg-gray-50 p-3 rounded text-xs font-mono mb-2">
+              Website | Topic | Link | Comment | Geo scope
             </div>
+            <p className="text-xs text-gray-500">
+              URLs can be entered as plain text or Excel hyperlinks. Hyperlinked cells will automatically extract the URL.
+            </p>
           </div>
 
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select CSV File
+              Select Excel File
             </label>
             <input
               type="file"
-              accept=".csv"
+              accept=".xlsx,.xls"
               onChange={handleFileChange}
               className="block w-full text-sm text-gray-500
                 file:mr-4 file:py-2 file:px-4

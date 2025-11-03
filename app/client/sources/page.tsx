@@ -6,7 +6,7 @@ import ErrorBoundary from '@/components/ErrorBoundary'
 import SourceTable from '@/components/SourceTable'
 import SourceForm from '@/components/SourceForm'
 import SourceFilters from '@/components/SourceFilters'
-import CSVImport from '@/components/CSVImport'
+import ExcelImport from '@/components/ExcelImport'
 
 function SourcesPageContent() {
   const [sources, setSources] = useState<any[]>([])
@@ -126,7 +126,7 @@ function SourcesPageContent() {
               onClick={handleImportClick}
               className="bg-inovintell-green text-white px-4 py-2 rounded-lg hover:bg-green-500 transition-colors"
             >
-              Import CSV
+              Import Excel
             </button>
             <button
               onClick={handleAddSource}
@@ -177,7 +177,7 @@ function SourcesPageContent() {
       )}
 
       {showImport && (
-        <CSVImport
+        <ExcelImport
           onImportComplete={() => {
             setShowImport(false)
             fetchSources()

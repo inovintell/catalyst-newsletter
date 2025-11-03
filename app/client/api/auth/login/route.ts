@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validatePassword, generateAuthToken } from '@/lib/auth/simple-auth';
-import { tenantManager } from '@/lib/auth/tenant-manager';
-import { signJWT, signRefreshToken, getTenantFromRequest } from '@/lib/auth/middleware';
+import { signJWT, signRefreshToken } from '@/lib/auth/middleware';
 import { z } from 'zod';
 
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string(),
-  tenantId: z.string().optional(),
   rememberMe: z.boolean().optional().default(false),
 });
 
@@ -24,20 +22,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { email, password, tenantId: requestTenantId, rememberMe } = validation.data;
-    const tenantId = requestTenantId || getTenantFromRequest(req);
+    const { email, password, rememberMe } = validation.data;
 
-    const tenant = await tenantManager.getTenant(tenantId);
-    if (!tenant) {
-      return NextResponse.json(
-        { error: 'Invalid tenant' },
-        { status: 400 }
-      );
-    }
-
-    const user = await validatePassword(email, password, tenantId);
+    const user = await validatePassword(email, password);
     if (!user) {
-      console.log('Login failed for:', email, 'in tenant:', tenantId);
+      console.log('Login failed for:', email);
       return NextResponse.json(
         { error: 'Invalid email or password' },
         { status: 401 }
@@ -46,13 +35,12 @@ export async function POST(req: NextRequest) {
 
     console.log('Login successful for:', email);
 
-    const role = user.role || tenant.settings.defaultRole || 'user';
+    const role = user.role || 'user';
     const permissions = user.permissions || [];
 
     const jwtPayload = {
       uid: user.uid,
       email: user.email || '',
-      tenantId,
       role,
       permissions,
     };
@@ -69,8 +57,6 @@ export async function POST(req: NextRequest) {
         email: user.email,
         displayName: user.displayName,
         emailVerified: user.emailVerified,
-        photoURL: null,
-        tenantId,
         role,
         permissions,
       },
@@ -90,13 +76,6 @@ export async function POST(req: NextRequest) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: rememberMe ? 30 * 24 * 60 * 60 : maxAge,
-    });
-
-    response.cookies.set('tenant-id', tenantId, {
-      httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 30 * 24 * 60 * 60,
     });
 
     return response;

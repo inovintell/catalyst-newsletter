@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "docker:build": "docker build -t catalyst-newsletter .",
     "docker:run": "docker run -p 3000:3000 catalyst-newsletter",
     "docker:compose": "docker-compose up",
@@ -34,8 +34,6 @@
     "autoprefixer": "^10.4.21",
     "bcryptjs": "^3.0.2",
     "cookies-next": "^6.1.0",
-    "firebase": "^12.3.0",
-    "firebase-admin": "^13.5.0",
     "jsonwebtoken": "^9.0.2",
     "langfuse": "^3.38.5",
     "next": "^15.5.3",
@@ -49,6 +47,12 @@
     "server-only": "^0.0.1",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.9.2",
+    "xlsx": "^0.18.5",
     "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.1",
+    "eslint-config-next": "^16.0.1",
+    "playwright": "^1.56.1"
   }
 }

@@ -33,11 +33,11 @@ issue_json: $3
 
 Focus on the following files:
 - `README.md` - Contains the project overview and instructions.
-- src/service/ - FastAPI service core
-- tools/ - CLI tools for extraction, evaluation, optimization
-- config/policies/ - Extraction rules and prompts per agency
-- assets/ - HTA templates, schemas, reports, ground truth data
-- adws/ - AI Developer Workflow automation system for isolated git worktree-based development
+- app/ - Next.js application (frontend & backend)
+- prisma/ - Database schema and migrations
+- deploy/ - Deployment scripts and GCP configuration
+- scripts/ - Utility scripts (start, stop, etc.)
+- adws/ - Agentic Development Workflow System (Python automation)
 
 - Read `.claude/commands/conditional_docs.md` to check if your task requires additional documentation
 - If your task matches any of the conditions listed, include those documentation files in the `Plan Format: Relevant Files` section of your plan

@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createUser, getUserByEmail, generateAuthToken } from '@/lib/auth/simple-auth';
-import { tenantManager } from '@/lib/auth/tenant-manager';
-import { signJWT, signRefreshToken, getTenantFromRequest } from '@/lib/auth/middleware';
+import { signJWT, signRefreshToken } from '@/lib/auth/middleware';
 import { z } from 'zod';
 
 const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8).max(100),
   displayName: z.string().min(2).max(100).optional(),
-  tenantId: z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -36,35 +34,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { email, password, displayName, tenantId: requestTenantId } = validation.data;
-    const tenantId = requestTenantId || getTenantFromRequest(req);
+    const { email, password, displayName } = validation.data;
 
-    const tenant = await tenantManager.getTenant(tenantId);
-    if (!tenant) {
-      return NextResponse.json(
-        { error: 'Invalid tenant' },
-        { status: 400 }
-      );
-    }
-
-    if (!tenant.settings.allowPasswordSignup) {
-      return NextResponse.json(
-        { error: 'Password signup is not allowed for this tenant' },
-        { status: 403 }
-      );
-    }
-
-    if (tenant.settings.allowedDomains && tenant.settings.allowedDomains.length > 0) {
-      const emailDomain = email.split('@')[1];
-      if (!tenant.settings.allowedDomains.includes(emailDomain)) {
-        return NextResponse.json(
-          { error: 'Email domain not allowed for this tenant' },
-          { status: 403 }
-        );
-      }
-    }
-
-    const existingUser = await getUserByEmail(email, tenantId);
+    const existingUser = await getUserByEmail(email);
     if (existingUser) {
       return NextResponse.json(
         { error: 'User with this email already exists' },
@@ -72,7 +44,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const user = await createUser(email, password, displayName, tenantId);
+    const user = await createUser(email, password, displayName);
     if (!user) {
       return NextResponse.json(
         { error: 'Failed to create user' },
@@ -80,14 +52,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Custom claims are handled in the simple-auth module
-
     const jwtPayload = {
       uid: user.uid,
       email: user.email || '',
-      tenantId,
-      role: tenant.settings.defaultRole || 'user',
-      permissions: [],
+      role: user.role || 'user',
+      permissions: user.permissions || [],
     };
 
     const accessToken = signJWT(jwtPayload);
@@ -100,8 +69,7 @@ export async function POST(req: NextRequest) {
         email: user.email,
         displayName: user.displayName,
         emailVerified: user.emailVerified,
-        tenantId,
-        role: tenant.settings.defaultRole || 'user',
+        role: user.role || 'user',
       },
       accessToken,
       refreshToken,
@@ -120,17 +88,6 @@ export async function POST(req: NextRequest) {
       sameSite: 'lax',
       maxAge: 30 * 24 * 60 * 60,
     });
-
-    response.cookies.set('tenant-id', tenantId, {
-      httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 30 * 24 * 60 * 60,
-    });
-
-    if (tenant.settings.requireEmailVerification) {
-      console.log('Email verification would be sent to:', user.email);
-    }
 
     return response;
   } catch (error) {

@@ -61,18 +61,15 @@ model NewsletterGeneration {
 model User {
   id            String   @id @default(cuid())
   uid           String   @unique
-  email         String
+  email         String   @unique
   passwordHash  String
   displayName   String?
   emailVerified Boolean  @default(false)
-  tenantId      String   @default("default-tenant")
   role          String   @default("user")
   permissions   Json     @default("[]")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  @@unique([tenantId, email])
   @@index([email])
-  @@index([tenantId])
   @@index([uid])
 }

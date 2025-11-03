@@ -51,7 +51,8 @@ review_image_dir: `agents/<adw_id>/<agent_name>/review_img/`
 
 IMPORTANT: Read and **Execute** `.claude/commands/prepare_app.md` now to prepare the application for the review.
 - Note: prepare_app.md will automatically detect and use ports from `.ports.env` if running in a worktree environment
-- The application URL will be http://localhost:PORT where PORT is from `.ports.env` (FRONTEND_PORT) or default 5173
+- The application URL will be http://localhost:PORT where PORT is from `.ports.env` (FRONTEND_PORT) or default 3000
+- PostgreSQL runs on port from `.ports.env` (POSTGRES_PORT) or default 5432
 
 ## Report
 

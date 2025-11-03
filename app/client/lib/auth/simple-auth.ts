@@ -7,7 +7,6 @@ export interface User {
   email: string;
   displayName?: string;
   emailVerified: boolean;
-  tenantId: string;
   role: string;
   permissions: string[];
   passwordHash?: string;
@@ -21,16 +20,12 @@ const JWT_SECRET = process.env.JWT_SECRET || 'development-secret-key-change-in-p
 async function initializeDefaultAdmin() {
   const adminEmail = process.env.ADMIN_EMAIL || 'pli@inovintell.com';
   const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
-  const tenantId = 'default-tenant';
 
   try {
     // Check if admin already exists in database
     const existingAdmin = await prisma.user.findUnique({
       where: {
-        tenantId_email: {
-          tenantId,
-          email: adminEmail,
-        },
+        email: adminEmail,
       },
     });
 
@@ -42,9 +37,8 @@ async function initializeDefaultAdmin() {
           email: adminEmail,
           displayName: 'Administrator',
           emailVerified: true,
-          tenantId,
           role: 'admin',
-          permissions: ['manage:users', 'manage:tenants', 'manage:sources', 'manage:newsletters'],
+          permissions: ['manage:users', 'manage:sources', 'manage:newsletters'],
           passwordHash,
         },
       });
@@ -63,17 +57,13 @@ initializeDefaultAdmin().catch(console.error);
 export async function createUser(
   email: string,
   password: string,
-  displayName?: string,
-  tenantId: string = 'default-tenant'
+  displayName?: string
 ): Promise<User | null> {
   try {
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
       where: {
-        tenantId_email: {
-          tenantId,
-          email,
-        },
+        email,
       },
     });
 
@@ -90,7 +80,6 @@ export async function createUser(
         email,
         displayName,
         emailVerified: false,
-        tenantId,
         role: 'user',
         permissions: [],
         passwordHash,
@@ -103,7 +92,6 @@ export async function createUser(
       email: dbUser.email,
       displayName: dbUser.displayName || undefined,
       emailVerified: dbUser.emailVerified,
-      tenantId: dbUser.tenantId,
       role: dbUser.role,
       permissions: Array.isArray(dbUser.permissions) ? dbUser.permissions as string[] : [],
       createdAt: dbUser.createdAt,
@@ -118,16 +106,12 @@ export async function createUser(
 }
 
 export async function getUserByEmail(
-  email: string,
-  tenantId: string = 'default-tenant'
+  email: string
 ): Promise<User | null> {
   try {
     const dbUser = await prisma.user.findUnique({
       where: {
-        tenantId_email: {
-          tenantId,
-          email,
-        },
+        email,
       },
     });
 
@@ -140,7 +124,6 @@ export async function getUserByEmail(
       email: dbUser.email,
       displayName: dbUser.displayName || undefined,
       emailVerified: dbUser.emailVerified,
-      tenantId: dbUser.tenantId,
       role: dbUser.role,
       permissions: Array.isArray(dbUser.permissions) ? dbUser.permissions as string[] : [],
       passwordHash: dbUser.passwordHash,
@@ -156,14 +139,12 @@ export async function getUserByEmail(
 }
 
 export async function getUserById(
-  uid: string,
-  tenantId: string = 'default-tenant'
+  uid: string
 ): Promise<User | null> {
   try {
-    const dbUser = await prisma.user.findFirst({
+    const dbUser = await prisma.user.findUnique({
       where: {
         uid,
-        tenantId,
       },
     });
 
@@ -176,7 +157,6 @@ export async function getUserById(
       email: dbUser.email,
       displayName: dbUser.displayName || undefined,
       emailVerified: dbUser.emailVerified,
-      tenantId: dbUser.tenantId,
       role: dbUser.role,
       permissions: Array.isArray(dbUser.permissions) ? dbUser.permissions as string[] : [],
       passwordHash: dbUser.passwordHash,
@@ -193,10 +173,9 @@ export async function getUserById(
 
 export async function validatePassword(
   email: string,
-  password: string,
-  tenantId: string = 'default-tenant'
+  password: string
 ): Promise<User | null> {
-  const user = await getUserByEmail(email, tenantId);
+  const user = await getUserByEmail(email);
   if (!user || !user.passwordHash) return null;
 
   const isValid = await bcrypt.compare(password, user.passwordHash);
@@ -211,7 +190,6 @@ export function generateAuthToken(user: User): string {
     {
       uid: user.uid,
       email: user.email,
-      tenantId: user.tenantId,
       role: user.role,
       permissions: user.permissions,
     },
@@ -230,21 +208,19 @@ export function verifyAuthToken(token: string): any {
 
 export async function updateUserRole(
   uid: string,
-  role: string,
-  tenantId: string = 'default-tenant'
+  role: string
 ): Promise<boolean> {
   try {
-    const result = await prisma.user.updateMany({
+    await prisma.user.update({
       where: {
         uid,
-        tenantId,
       },
       data: {
         role,
       },
     });
 
-    return result.count > 0;
+    return true;
   } catch (error) {
     console.error('Failed to update user role:', error);
     return false;
@@ -252,18 +228,16 @@ export async function updateUserRole(
 }
 
 export async function deleteUser(
-  uid: string,
-  tenantId: string = 'default-tenant'
+  uid: string
 ): Promise<boolean> {
   try {
-    const result = await prisma.user.deleteMany({
+    await prisma.user.delete({
       where: {
         uid,
-        tenantId,
       },
     });
 
-    return result.count > 0;
+    return true;
   } catch (error) {
     console.error('Failed to delete user:', error);
     return false;

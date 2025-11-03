@@ -60,10 +60,6 @@ logs
 *.log
 .env.prod
 
-# Terraform
-deploy/gcp/.terraform/
-deploy/gcp/.terraform.lock.hcl
-deploy/gcp/terraform.tfstate*
-deploy/gcp/tfplan
-deploy/gcp/terraform.tfvars
 __pycache__
+agents/**/
+
