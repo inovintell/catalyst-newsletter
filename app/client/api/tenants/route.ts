@@ -13,6 +13,14 @@ const createTenantSchema = z.object({
     requireEmailVerification: z.boolean(),
     allowedDomains: z.array(z.string()).optional(),
     defaultRole: z.string().optional(),
+    customClaims: z.record(z.any()).optional(),
+    providers: z.array(z.object({
+      type: z.enum(['oidc', 'saml', 'oauth2']),
+      id: z.string(),
+      displayName: z.string(),
+      enabled: z.boolean(),
+      config: z.record(z.any()).optional(),
+    })).optional(),
   }),
 });
 
@@ -52,7 +60,20 @@ export const POST = withAuth(
         );
       }
 
-      const tenant = await tenantManager.createTenant(validation.data);
+      const tenant = await tenantManager.createTenant({
+        id: validation.data.id,
+        name: validation.data.name,
+        displayName: validation.data.displayName,
+        settings: {
+          allowPasswordSignup: validation.data.settings.allowPasswordSignup,
+          enableEmailLinkSignin: validation.data.settings.enableEmailLinkSignin,
+          requireEmailVerification: validation.data.settings.requireEmailVerification,
+          ...(validation.data.settings.allowedDomains && { allowedDomains: validation.data.settings.allowedDomains }),
+          ...(validation.data.settings.defaultRole && { defaultRole: validation.data.settings.defaultRole }),
+          ...(validation.data.settings.customClaims && { customClaims: validation.data.settings.customClaims }),
+          ...(validation.data.settings.providers && { providers: validation.data.settings.providers as any }),
+        },
+      });
 
       if (context.user) {
         await tenantManager.assignUserToTenant(
