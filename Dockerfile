@@ -3,7 +3,7 @@ FROM node:20-alpine AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Copy package files
+# Copy package files from root (for dependencies and prisma)
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma/
 
@@ -12,16 +12,47 @@ RUN npm ci
 
 # Builder stage
 FROM node:20-alpine AS builder
-WORKDIR /app
+WORKDIR /build
 
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
 
-# Generate Prisma client
+# Copy prisma files (keep in separate directory for migrations)
+COPY prisma ./prisma/
 RUN npx prisma generate
 
-# Build the application
+# Copy package.json for build scripts
+COPY package.json ./
+
+# Copy Next.js config files to root
+COPY app/client/next.config.js ./
+COPY app/client/tsconfig.json ./
+COPY app/client/postcss.config.js ./
+COPY app/client/tailwind.config.js ./
+
+# Copy app/client content to /build/app/ so Next.js finds its app directory
+# But also copy shared resources (components, lib, etc.) to root for @/ imports
+COPY app/client/(auth) ./app/(auth)/
+COPY app/client/agent-config ./app/agent-config/
+COPY app/client/api ./app/api/
+COPY app/client/dashboard ./app/dashboard/
+COPY app/client/newsletters ./app/newsletters/
+COPY app/client/sources ./app/sources/
+COPY app/client/layout.tsx ./app/
+COPY app/client/page.tsx ./app/
+COPY app/client/globals.css ./app/
+COPY app/client/middleware.ts ./
+
+# Copy shared resources to root for @/ path resolution
+COPY app/client/components ./components/
+COPY app/client/lib ./lib/
+COPY app/client/contexts ./contexts/
+COPY app/client/public ./public/
+
+# Copy agent configs
+COPY agent-configs ./agent-configs/
+
+# Build the Next.js application
 ENV NEXT_TELEMETRY_DISABLED 1
 RUN npm run build
 
@@ -36,18 +67,27 @@ ENV NEXT_TELEMETRY_DISABLED 1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Copy necessary files
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/@anthropic-ai ./node_modules/@anthropic-ai
-COPY --from=builder /app/scripts/start.sh ./start.sh
+# Copy prisma files for migrations
+COPY --from=builder /build/prisma ./prisma
+COPY --from=builder /build/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /build/node_modules/@prisma ./node_modules/@prisma
 
-# Make start script executable
-RUN chmod +x ./start.sh
+# Copy the built Next.js application
+COPY --from=builder /build/public ./public
+COPY --from=builder /build/.next/standalone ./
+COPY --from=builder /build/.next/static ./.next/static
+
+# Copy agent configs
+COPY --from=builder /build/agent-configs ./agent-configs
+
+# Copy Anthropic SDK (needed for Claude Agent SDK)
+COPY --from=builder /build/node_modules/@anthropic-ai ./node_modules/@anthropic-ai
+
+# Create a simple start script that runs migrations and starts the app
+RUN echo '#!/bin/sh' > ./start.sh && \
+    echo 'npx prisma migrate deploy' >> ./start.sh && \
+    echo 'node server.js' >> ./start.sh && \
+    chmod +x ./start.sh
 
 # Set correct permissions
 RUN chown -R nextjs:nodejs /app
