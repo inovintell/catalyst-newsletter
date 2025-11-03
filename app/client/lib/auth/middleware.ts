@@ -1,18 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
-import { getUserById, verifyAuthToken } from './simple-auth';
-import { tenantManager, AuthUser } from './tenant-manager';
+import { getUserById, verifyAuthToken, User } from './simple-auth';
+
+export interface AuthUser {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  emailVerified: boolean;
+  role?: string;
+  permissions?: string[];
+}
 
 export interface AuthContext {
   user: AuthUser | null;
-  tenantId: string | null;
   isAuthenticated: boolean;
 }
 
 export interface JWTPayload {
   uid: string;
   email: string;
-  tenantId: string;
   role?: string;
   permissions?: string[];
   exp?: number;
@@ -52,7 +58,6 @@ export async function getAuthContext(req: NextRequest): Promise<AuthContext> {
   if (!token || typeof token !== 'string') {
     return {
       user: null,
-      tenantId: null,
       isAuthenticated: false,
     };
   }
@@ -61,16 +66,14 @@ export async function getAuthContext(req: NextRequest): Promise<AuthContext> {
   if (!payload) {
     return {
       user: null,
-      tenantId: null,
       isAuthenticated: false,
     };
   }
 
-  const user = await getUserById(payload.uid, payload.tenantId);
+  const user = await getUserById(payload.uid);
   if (!user) {
     return {
       user: null,
-      tenantId: null,
       isAuthenticated: false,
     };
   }
@@ -79,17 +82,13 @@ export async function getAuthContext(req: NextRequest): Promise<AuthContext> {
     uid: user.uid,
     email: user.email || null,
     displayName: user.displayName || null,
-    photoURL: null,
     emailVerified: user.emailVerified,
-    tenantId: payload.tenantId,
     role: payload.role,
     permissions: payload.permissions,
-    customClaims: {},
   };
 
   return {
     user: authUser,
-    tenantId: payload.tenantId,
     isAuthenticated: true,
   };
 }
@@ -160,26 +159,6 @@ export function withAuth(
   };
 }
 
-export function getTenantFromRequest(req: NextRequest): string {
-  const host = req.headers.get('host') || '';
-  const tenantHeader = req.headers.get('x-tenant-id');
-  const tenantCookie = req.cookies.get('tenant-id')?.value;
-
-  if (tenantHeader && typeof tenantHeader === 'string') {
-    return tenantHeader;
-  }
-
-  if (tenantCookie && typeof tenantCookie === 'string') {
-    return tenantCookie;
-  }
-
-  const tenantFromHost = tenantManager.getTenantFromHost(host);
-  if (tenantFromHost) {
-    return tenantFromHost;
-  }
-
-  return process.env.DEFAULT_TENANT_ID || 'default-tenant';
-}
 
 
 export async function refreshAuthToken(refreshToken: string): Promise<{
@@ -191,7 +170,7 @@ export async function refreshAuthToken(refreshToken: string): Promise<{
     return null;
   }
 
-  const user = await getUserById(payload.uid, payload.tenantId);
+  const user = await getUserById(payload.uid);
   if (!user) {
     return null;
   }
@@ -199,7 +178,6 @@ export async function refreshAuthToken(refreshToken: string): Promise<{
   const newPayload: Omit<JWTPayload, 'exp' | 'iat'> = {
     uid: user.uid,
     email: user.email || '',
-    tenantId: payload.tenantId,
     role: payload.role,
     permissions: payload.permissions,
   };
@@ -213,5 +191,4 @@ export async function refreshAuthToken(refreshToken: string): Promise<{
 export function clearAuthCookies(res: NextResponse): void {
   res.cookies.delete('auth-token');
   res.cookies.delete('refresh-token');
-  res.cookies.delete('tenant-id');
 }

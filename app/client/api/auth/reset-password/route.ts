@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserByEmail } from '@/lib/auth/simple-auth';
-import { getTenantFromRequest } from '@/lib/auth/middleware';
 import { z } from 'zod';
 
 const resetPasswordSchema = z.object({
   email: z.string().email(),
-  tenantId: z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -20,10 +18,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { email, tenantId: requestTenantId } = validation.data;
-    const tenantId = requestTenantId || getTenantFromRequest(req);
+    const { email } = validation.data;
 
-    const user = await getUserByEmail(email, tenantId);
+    const user = await getUserByEmail(email);
     if (!user) {
       return NextResponse.json({
         success: true,

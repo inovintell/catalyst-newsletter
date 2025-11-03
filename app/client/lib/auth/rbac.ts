@@ -14,11 +14,6 @@ export type Permission =
   | 'user.edit'
   | 'user.delete'
   | 'user.view'
-  | 'tenant.create'
-  | 'tenant.edit'
-  | 'tenant.delete'
-  | 'tenant.view'
-  | 'tenant.switch'
   | 'settings.edit'
   | 'settings.view';
 
@@ -45,11 +40,6 @@ export const rolePermissions: Record<Role, Permission[]> = {
     'user.edit',
     'user.delete',
     'user.view',
-    'tenant.create',
-    'tenant.edit',
-    'tenant.delete',
-    'tenant.view',
-    'tenant.switch',
     'settings.edit',
     'settings.view',
   ],
@@ -66,8 +56,6 @@ export const rolePermissions: Record<Role, Permission[]> = {
     'user.create',
     'user.edit',
     'user.view',
-    'tenant.view',
-    'tenant.switch',
     'settings.edit',
     'settings.view',
   ],
@@ -80,14 +68,12 @@ export const rolePermissions: Record<Role, Permission[]> = {
     'source.edit',
     'source.view',
     'user.view',
-    'tenant.view',
     'settings.view',
   ],
   viewer: [
     'newsletter.view',
     'source.view',
     'user.view',
-    'tenant.view',
     'settings.view',
   ],
   user: [
@@ -121,7 +107,7 @@ export function hasRole(
 
 export function canAccessResource(
   userRole: Role | undefined,
-  resourceType: 'newsletter' | 'source' | 'user' | 'tenant' | 'settings',
+  resourceType: 'newsletter' | 'source' | 'user' | 'settings',
   action: 'create' | 'edit' | 'delete' | 'view'
 ): boolean {
   const permission = `${resourceType}.${action}` as Permission;
@@ -172,7 +158,7 @@ export function mergePermissions(
 
 export function filterPermissionsByResource(
   permissions: Permission[],
-  resourceType: 'newsletter' | 'source' | 'user' | 'tenant' | 'settings'
+  resourceType: 'newsletter' | 'source' | 'user' | 'settings'
 ): Permission[] {
   return permissions.filter(permission =>
     permission.startsWith(`${resourceType}.`)
@@ -181,7 +167,7 @@ export function filterPermissionsByResource(
 
 export function getResourceActions(
   userRole: Role | undefined,
-  resourceType: 'newsletter' | 'source' | 'user' | 'tenant' | 'settings'
+  resourceType: 'newsletter' | 'source' | 'user' | 'settings'
 ): ('create' | 'edit' | 'delete' | 'view')[] {
   if (!userRole) return [];
 

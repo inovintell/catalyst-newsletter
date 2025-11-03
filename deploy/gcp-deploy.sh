@@ -179,7 +179,6 @@ echo "🚀 Deploying to Cloud Run..."
 # Build environment variables list
 ENV_VARS="NODE_ENV=production"
 ENV_VARS="${ENV_VARS},GCP_PROJECT_ID=${PROJECT_ID}"
-ENV_VARS="${ENV_VARS},DEFAULT_TENANT_ID=${DEFAULT_TENANT_ID:-default-tenant}"
 ENV_VARS="${ENV_VARS},ADMIN_EMAIL=${ADMIN_EMAIL:-admin@inovintell.com}"
 ENV_VARS="${ENV_VARS},CLAUDE_MODEL=${CLAUDE_MODEL:-claude-sonnet-4-5-20250929}"
 ENV_VARS="${ENV_VARS},AGENT_CONFIG_PATH=${AGENT_CONFIG_PATH:-./agent-configs}"
