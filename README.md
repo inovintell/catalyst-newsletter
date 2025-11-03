@@ -72,28 +72,27 @@ Catalyst Newsletter Generator is a comprehensive application that automates the 
 
 ## Tech Stack
 
-- **Frontend**: Next.js 14, TypeScript, Tailwind CSS
+- **Frontend**: Next.js 15, TypeScript, Tailwind CSS
 - **Backend**: Next.js API Routes, Prisma ORM
-- **Database**: PostgreSQL (Docker)
-- **AI Integration**: Anthropic Claude API (Configurable model)
+- **Database**: PostgreSQL 16 (Docker containerized)
+- **AI Integration**: Anthropic Claude API with Claude Agent SDK
+- **Observability**: Langfuse LLM tracing (optional)
+- **Containerization**: Docker & Docker Compose (multi-stage builds)
 - **Deployment**: Google Cloud Platform, Cloud Run
 - **CI/CD**: GitHub Actions
 
 ## Setup Instructions
 
 ### Prerequisites
-- Node.js 18+
-- Docker Desktop
-- npm or yarn
+- Docker Desktop (required - handles all dependencies)
 - Anthropic API key ([Get one here](https://console.anthropic.com/))
 
 ### Installation
 
-1. **Clone and install dependencies:**
+1. **Clone the repository:**
 ```bash
 git clone [repository-url]
 cd catalyst-newsletter
-npm install
 ```
 
 2. **Set up environment variables:**
@@ -103,15 +102,23 @@ cp .env.sample .env.local
 
 Edit `.env.local` with your configuration:
 ```env
-# Database
-DATABASE_URL="postgresql://newsletter_user:newsletter_pass@localhost:5432/catalyst_newsletter?schema=public"
+# Database (automatically configured by Docker)
+DATABASE_URL="postgresql://newsletter_user:newsletter_pass@postgres:5432/catalyst_newsletter?schema=public"
 
 # Application
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
+NODE_ENV="production"
+APP_ENV="local"
 
 # Claude API Configuration
 ANTHROPIC_API_KEY="your-anthropic-api-key-here"
 CLAUDE_MODEL="claude-sonnet-4-5-20250929" # Default model, can be changed to any supported Claude model
+
+# Langfuse Observability (optional)
+LANGFUSE_SECRET_KEY="your-langfuse-secret-key"
+LANGFUSE_PUBLIC_KEY="your-langfuse-public-key"
+LANGFUSE_HOST="https://cloud.langfuse.com"
+LANGFUSE_TRACING_ENVIRONMENT="local"
 
 # Agent Configuration (optional)
 AGENT_UPDATE_WEBHOOK="https://your-webhook-url.com/agent-update"
@@ -119,23 +126,33 @@ AGENT_CONFIG_PATH="./agent-configs"
 AGENT_AUTO_UPDATE="true"
 ```
 
-3. **Start PostgreSQL with Docker:**
+3. **Start the application with Docker:**
+
+**First time setup or after code changes:**
 ```bash
-docker-compose up -d
+./scripts/start.sh --build
 ```
 
-4. **Run database migrations:**
+**Subsequent starts (using existing images):**
 ```bash
-npx prisma migrate dev --name init
-npx prisma generate
+./scripts/start.sh
 ```
 
-5. **Start the development server:**
-```bash
-npm run dev
-```
+This single command will:
+- Build optimized Docker images (if `--build` flag is used)
+- Start PostgreSQL database with health checks
+- Run database migrations automatically
+- Start the Next.js application in production mode
+- Set up proper networking between services
 
 Visit http://localhost:3000
+
+**To stop the services:**
+```bash
+Press Ctrl+C
+```
+
+The script will automatically clean up all running containers.
 
 ## Usage Guide
 
@@ -168,32 +185,42 @@ Visit http://localhost:3000
 
 ```
 catalyst-newsletter/
-├── app/                    # Next.js App Router
-│   ├── api/               # API endpoints
-│   │   ├── sources/       # Source management
-│   │   ├── generate/      # Newsletter generation
-│   │   ├── newsletters/   # Archive management
-│   │   └── refine/        # AI refinement
-│   ├── dashboard/         # Main generation interface
-│   ├── sources/           # Source management UI
-│   ├── newsletters/       # Newsletter archive
-│   └── agent-config/      # Agent configuration
-├── components/            # React components
-│   ├── SourceTable.tsx    # Source listing
-│   ├── SourceForm.tsx     # Source editor
-│   ├── NewsletterConfig.tsx # Generation settings
-│   └── GenerationProgress.tsx # Real-time status
-├── lib/                   # Utilities and services
-│   ├── claude-api.ts      # Claude integration
-│   ├── agent-manager.ts   # Agent config management
-│   ├── db.ts             # Database utilities
-│   └── api-client.ts     # Frontend API calls
-├── prisma/                # Database schema
-│   └── schema.prisma     # Data models
-├── public/                # Static assets
-├── deploy/                # Deployment scripts
-└── specs/                 # Feature specifications
+├── app/
+│   └── client/                # Next.js application root
+│       ├── api/               # API endpoints
+│       │   ├── sources/       # Source management
+│       │   ├── generate/      # Newsletter generation
+│       │   ├── newsletters/   # Archive management
+│       │   └── refine/        # AI refinement
+│       ├── dashboard/         # Main generation interface
+│       ├── sources/           # Source management UI
+│       ├── newsletters/       # Newsletter archive
+│       ├── agent-config/      # Agent configuration
+│       ├── components/        # React components
+│       ├── lib/              # Utilities and services
+│       ├── contexts/         # React contexts
+│       └── public/           # Static assets
+├── prisma/                    # Database schema & migrations
+│   ├── schema.prisma         # Data models
+│   └── migrations/           # Database migrations
+├── scripts/                   # Utility scripts
+│   └── start.sh              # Docker startup script
+├── agent-configs/            # Claude agent configurations
+├── deploy/                   # Deployment scripts & configs
+├── specs/                    # Feature specifications
+├── Dockerfile                # Multi-stage Docker build
+├── docker-compose.yml        # Service orchestration
+├── .env.local               # Environment configuration
+└── package.json             # Dependencies & scripts
 ```
+
+### Key Files
+
+- **Dockerfile**: Multi-stage build for optimized production images
+- **docker-compose.yml**: Orchestrates PostgreSQL and Next.js services
+- **scripts/start.sh**: Unified script to start/stop all services
+- **app/client/**: Next.js 15 App Router application
+- **prisma/schema.prisma**: Database schema with NewsSource and Newsletter models
 
 ## API Endpoints
 
@@ -243,23 +270,57 @@ catalyst-newsletter/
 ## Development Commands
 
 ```bash
-# Development server
+# Start application with Docker (first time or after changes)
+./scripts/start.sh --build
+
+# Start application with Docker (subsequent runs)
+./scripts/start.sh
+
+# Stop all services
+Press Ctrl+C (or docker-compose down)
+
+# View logs for all services
+docker-compose logs -f
+
+# View logs for specific service
+docker-compose logs -f app
+docker-compose logs -f postgres
+
+# Rebuild only the app image
+docker-compose build app
+
+# Access database with Prisma Studio (in a new terminal)
+docker-compose exec app npx prisma studio
+
+# Run database migrations manually
+docker-compose exec app npx prisma migrate deploy
+
+# Access PostgreSQL directly
+docker-compose exec postgres psql -U newsletter_user -d catalyst_newsletter
+
+# Remove all containers and volumes (clean slate)
+docker-compose down -v
+```
+
+### Alternative: Local Development (without Docker)
+
+If you prefer to run the application locally without Docker:
+
+```bash
+# Install dependencies
+npm install
+
+# Start PostgreSQL separately
+docker-compose up -d postgres
+
+# Run migrations
+npx prisma migrate dev
+
+# Start development server
 npm run dev
 
 # Build for production
 npm run build
-
-# Start production server
-npm start
-
-# Run database migrations
-npx prisma migrate dev
-
-# Open Prisma Studio
-npx prisma studio
-
-# Seed database (if configured)
-npm run seed
 
 # Type checking
 npm run type-check
@@ -272,25 +333,66 @@ npm run lint
 
 ### Common Issues
 
-1. **Database Connection Error**
-   - Ensure Docker is running
-   - Check DATABASE_URL in .env.local
-   - Run `docker-compose up -d`
+1. **Docker Not Running**
+   - Error: `Cannot connect to the Docker daemon`
+   - Solution: Start Docker Desktop and wait for it to be ready
+   - Run: `./scripts/start.sh` (it will check if Docker is running)
 
-2. **Claude API Errors**
-   - Verify ANTHROPIC_API_KEY is valid
-   - Check API rate limits
-   - Ensure model name is correct
+2. **Database Connection Error**
+   - Ensure Docker containers are running: `docker-compose ps`
+   - Check if PostgreSQL is healthy: `docker-compose logs postgres`
+   - Verify DATABASE_URL in .env.local matches docker-compose.yml settings
+   - If database is corrupted, reset with: `docker-compose down -v && ./scripts/start.sh --build`
 
-3. **Generation Fails**
+3. **Build Failures**
+   - Error: `Module not found` or build errors
+   - Solution: Rebuild with clean cache
+   ```bash
+   docker-compose down
+   docker-compose build --no-cache app
+   ./scripts/start.sh
+   ```
+
+4. **Port Already in Use**
+   - Error: `Port 3000 is already allocated`
+   - Solution: Find and stop the process using the port
+   ```bash
+   lsof -ti:3000 | xargs kill -9  # macOS/Linux
+   docker-compose down  # Stop existing containers
+   ```
+
+5. **Environment Variables Not Loading**
+   - Ensure .env.local is in the project root (not in app/client/)
+   - Check file permissions: `chmod 644 .env.local`
+   - Restart containers: `docker-compose down && ./scripts/start.sh`
+
+6. **Claude API Errors**
+   - Verify ANTHROPIC_API_KEY is valid in .env.local
+   - Check API rate limits at https://console.anthropic.com/
+   - Ensure model name is correct (e.g., claude-sonnet-4-5-20250929)
+   - View API errors in logs: `docker-compose logs -f app`
+
+7. **Generation Fails**
    - Check browser console for errors
-   - Verify sources are configured
+   - Verify sources are configured at `/sources`
    - Ensure date range contains data
+   - Check app logs: `docker-compose logs app | grep -i error`
 
-4. **Import Issues**
-   - CSV must have required columns
+8. **Import Issues**
+   - CSV must have required columns (website, url, topic, geoScope)
    - Check file encoding (UTF-8)
-   - Verify data formats
+   - Verify data formats match schema
+
+9. **Container Won't Start**
+   - Check logs: `docker-compose logs app`
+   - Verify migrations ran: `docker-compose logs app | grep prisma`
+   - Access container shell: `docker-compose exec app sh`
+   - Check disk space: `docker system df`
+
+10. **Performance Issues**
+    - Allocate more resources to Docker Desktop
+    - Clean up unused images: `docker system prune -a`
+    - Check container resources: `docker stats`
 
 ## Contributing
 
