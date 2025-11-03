@@ -24,14 +24,23 @@ export default function OutputPage() {
       // Parse and set error if present
       try {
         const parsedError = JSON.parse(storedError)
-        setError(parsedError)
-        setGenerationId(storedGenerationId || 'unknown')
+        // Batch state updates in microtask to avoid sync setState in effect
+        queueMicrotask(() => {
+          setError(parsedError)
+          setGenerationId(storedGenerationId || 'unknown')
+          setLoading(false)
+        })
+        return
       } catch (e) {
         console.error('Failed to parse error:', e)
       }
     } else if (storedOutput && storedGenerationId) {
-      setOutput(storedOutput)
-      setGenerationId(storedGenerationId)
+      queueMicrotask(() => {
+        setOutput(storedOutput)
+        setGenerationId(storedGenerationId)
+        setLoading(false)
+      })
+      return
       // Don't clear sessionStorage immediately - keep for potential refinement
     } else {
       // Check if coming back from refinement
@@ -39,15 +48,18 @@ export default function OutputPage() {
       const refineGenerationId = sessionStorage.getItem('refineGenerationId')
 
       if (refineOutput && refineGenerationId) {
-        setOutput(refineOutput)
-        setGenerationId(refineGenerationId)
+        queueMicrotask(() => {
+          setOutput(refineOutput)
+          setGenerationId(refineGenerationId)
+          setLoading(false)
+        })
+        return
       } else {
         // If no output at all, redirect back to dashboard
         router.push('/dashboard')
         return
       }
     }
-    setLoading(false)
   }, [router])
 
   const handleCopyToClipboard = () => {

@@ -80,7 +80,7 @@ export default function SourceForm({ source, onSave, onCancel }: SourceFormProps
 
   useEffect(() => {
     if (source) {
-      setFormData(source)
+      queueMicrotask(() => setFormData(source))
     }
   }, [source])
 

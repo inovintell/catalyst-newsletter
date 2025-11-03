@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "docker:build": "docker build -t catalyst-newsletter .",
     "docker:run": "docker run -p 3000:3000 catalyst-newsletter",
     "docker:compose": "docker-compose up",
@@ -49,5 +49,10 @@
     "typescript": "^5.9.2",
     "xlsx": "^0.18.5",
     "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.1",
+    "eslint-config-next": "^16.0.1",
+    "playwright": "^1.56.1"
   }
 }
