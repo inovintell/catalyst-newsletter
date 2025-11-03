@@ -2,8 +2,6 @@ export interface TenantConfig {
   id: string;
   displayName: string;
   allowPasswordSignup: boolean;
-  enableEmailLinkSignin: boolean;
-  providers?: string[];
 }
 
 export interface UserClaims {
@@ -24,20 +22,10 @@ export interface Tenant {
 
 export interface TenantSettings {
   allowPasswordSignup: boolean;
-  enableEmailLinkSignin: boolean;
   requireEmailVerification: boolean;
   allowedDomains?: string[];
   defaultRole?: string;
   customClaims?: Record<string, any>;
-  providers?: AuthProvider[];
-}
-
-export interface AuthProvider {
-  type: 'oidc' | 'saml' | 'oauth2';
-  id: string;
-  displayName: string;
-  enabled: boolean;
-  config?: Record<string, any>;
 }
 
 export interface TenantContext {
@@ -75,7 +63,6 @@ class TenantManager {
       displayName: 'Default Tenant',
       settings: {
         allowPasswordSignup: true,
-        enableEmailLinkSignin: false,
         requireEmailVerification: false,
         defaultRole: 'user',
       },
@@ -99,11 +86,9 @@ class TenantManager {
       id: tenant.id,
       displayName: tenant.displayName,
       allowPasswordSignup: tenant.settings.allowPasswordSignup,
-      enableEmailLinkSignin: tenant.settings.enableEmailLinkSignin,
-      providers: tenant.settings.providers?.map(p => p.id),
     };
 
-    // In production, this would create the tenant in Identity Platform
+    // In production, this would store tenant in database
     this.tenants.set(tenant.id, newTenant);
     return newTenant;
   }
@@ -113,12 +98,12 @@ class TenantManager {
       return this.tenants.get(tenantId) || null;
     }
 
-    // In production, this would fetch from Identity Platform
+    // In production, this would fetch from database
     return null;
   }
 
   async listTenants(): Promise<Tenant[]> {
-    // In production, this would list from Identity Platform
+    // In production, this would list from database
     return Array.from(this.tenants.values());
   }
 
@@ -161,7 +146,7 @@ class TenantManager {
   }
 
   async validateTenantAccess(userId: string, tenantId: string): Promise<boolean> {
-    // In production, validate against Identity Platform
+    // In production, validate against database
     return true;
   }
 
@@ -183,57 +168,22 @@ class TenantManager {
       ...tenant.settings.customClaims,
     };
 
-    // In production, set custom claims in Identity Platform
+    // In production, update user record in database
   }
 
   async removeUserFromTenant(userId: string, tenantId: string): Promise<void> {
-    // In production, remove from Identity Platform
+    // In production, update user record in database
   }
 
   async getUserTenants(userEmail: string): Promise<string[]> {
     const tenants: string[] = [];
 
     for (const [tenantId] of this.tenants) {
-      // In production, check Identity Platform
+      // In production, query database for user's tenants
       tenants.push(tenantId);
     }
 
     return tenants;
-  }
-
-  async configureMicrosoftEntra(
-    tenantId: string,
-    clientId: string,
-    clientSecret: string,
-    entraeTenantId: string
-  ): Promise<void> {
-    const tenant = await this.getTenant(tenantId);
-    if (!tenant) {
-      throw new Error('Tenant not found');
-    }
-
-    const provider: AuthProvider = {
-      type: 'oidc',
-      id: 'microsoft-entra',
-      displayName: 'Microsoft Entra ID',
-      enabled: true,
-      config: {
-        clientId,
-        clientSecret,
-        tenantId: entraeTenantId,
-        issuer: `https://login.microsoftonline.com/${entraeTenantId}/v2.0`,
-        authorizationUrl: `https://login.microsoftonline.com/${entraeTenantId}/oauth2/v2.0/authorize`,
-        tokenUrl: `https://login.microsoftonline.com/${entraeTenantId}/oauth2/v2.0/token`,
-        userInfoUrl: 'https://graph.microsoft.com/v1.0/me',
-        scopes: ['openid', 'profile', 'email'],
-      },
-    };
-
-    const existingProviders = tenant.settings.providers || [];
-    const filteredProviders = existingProviders.filter(p => p.id !== 'microsoft-entra');
-
-    tenant.settings.providers = [...filteredProviders, provider];
-    await this.updateTenant(tenantId, { settings: tenant.settings });
   }
 
   getTenantFromHost(host: string): string | null {

@@ -34,8 +34,6 @@
     "autoprefixer": "^10.4.21",
     "bcryptjs": "^3.0.2",
     "cookies-next": "^6.1.0",
-    "firebase": "^12.3.0",
-    "firebase-admin": "^13.5.0",
     "jsonwebtoken": "^9.0.2",
     "langfuse": "^3.38.5",
     "next": "^15.5.3",

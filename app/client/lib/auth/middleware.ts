@@ -181,25 +181,6 @@ export function getTenantFromRequest(req: NextRequest): string {
   return process.env.DEFAULT_TENANT_ID || 'default-tenant';
 }
 
-export async function validateFirebaseToken(
-  idToken: string,
-  tenantId?: string
-): Promise<AuthUser | null> {
-  const decodedToken = verifyAuthToken(idToken);
-  if (!decodedToken) {
-    return null;
-  }
-
-  return {
-    uid: decodedToken.uid,
-    email: decodedToken.email || null,
-    displayName: decodedToken.displayName || null,
-    photoURL: null,
-    emailVerified: decodedToken.emailVerified || false,
-    tenantId: decodedToken.tenantId || tenantId,
-    customClaims: decodedToken,
-  };
-}
 
 export async function refreshAuthToken(refreshToken: string): Promise<{
   accessToken: string;
