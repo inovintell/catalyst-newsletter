@@ -163,7 +163,7 @@ export default function Home() {
             <ul className="space-y-2">
               <li className="flex items-start">
                 <span className="mr-2">💡</span>
-                <span>Import sources from CSV for bulk setup</span>
+                <span>Import sources from Excel for bulk setup</span>
               </li>
               <li className="flex items-start">
                 <span className="mr-2">🎯</span>

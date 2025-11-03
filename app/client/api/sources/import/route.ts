@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
+import { parseExcelFile } from '@/lib/excelParser'
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,47 +15,50 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const text = await file.text()
-    const lines = text.split('\n').filter(line => line.trim())
-
-    // Skip header line if it exists
-    const dataLines = lines[0].includes('Website') ? lines.slice(1) : lines
+    // Validate file extension
+    if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+      return NextResponse.json(
+        { error: 'Please upload an Excel file (.xlsx or .xls)' },
+        { status: 400 }
+      )
+    }
 
     const imported = []
     const skipped = []
     const updated = []
     const errors = []
 
-    for (let i = 0; i < dataLines.length; i++) {
-      const line = dataLines[i]
-      // Parse CSV line (handling semicolon delimiter as in the sample)
-      const parts = line.split(';').map(p => p.trim())
+    let parsedData
+    try {
+      parsedData = await parseExcelFile(file)
+    } catch (error) {
+      return NextResponse.json(
+        { error: `Failed to parse Excel file: ${error}` },
+        { status: 400 }
+      )
+    }
 
-      if (parts.length < 5) {
-        errors.push(`Line ${i + 2}: Invalid format`)
-        continue
-      }
-
-      const [website, topic, link, comment, geoScope, ...rest] = parts
+    for (let i = 0; i < parsedData.length; i++) {
+      const row = parsedData[i]
 
       try {
         // Check for existing source with same website and topic
         const existingSource = await prisma.newsSource.findFirst({
           where: {
-            website: website || 'Unknown',
-            topic: topic || 'General'
+            website: row.website,
+            topic: row.topic
           }
         })
 
         const sourceData = {
-          website: website || 'Unknown',
-          topic: topic || 'General',
-          link: link || '',
-          comment: comment || null,
-          geoScope: geoScope || 'Global',
-          importanceLevel: comment?.includes('Important') ? 'Important' :
-                         comment?.includes('Less important') ? 'Less important' : null,
-          requiresScreening: comment?.includes('Requires screening') || false,
+          website: row.website,
+          topic: row.topic,
+          link: row.link,
+          comment: row.comment,
+          geoScope: row.geoScope,
+          importanceLevel: row.comment?.includes('Important') ? 'Important' :
+                         row.comment?.includes('Less important') ? 'Less important' : null,
+          requiresScreening: row.comment?.includes('Requires screening') || false,
           active: true
         }
 
@@ -79,7 +83,7 @@ export async function POST(request: NextRequest) {
           imported.push(source)
         }
       } catch (error) {
-        errors.push(`Line ${i + 2}: Failed to import - ${error}`)
+        errors.push(`Row ${i + 2}: Failed to import - ${error}`)
       }
     }
 
