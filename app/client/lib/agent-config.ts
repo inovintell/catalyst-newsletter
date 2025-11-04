@@ -59,16 +59,52 @@ ${sourcesText}
 Output Format Requirements:
 ${formatInstructions[config.outputFormat]}
 
-Guidelines:
-1. Search each source for relevant news within the date range
-2. Focus on developments in HTA (Health Technology Assessment), HEOR (Health Economics and Outcomes Research), and market access
-3. Highlight regulatory changes, pricing decisions, and reimbursement updates
-4. Include relevant clinical trial results and drug approvals
-5. Note any significant partnerships, acquisitions, or strategic moves
-6. Provide context and implications for each major development
-7. Use professional, clear language suitable for pharmaceutical and biotech executives
+## Parallel Source Fetching Instructions
 
-Please search the provided sources and generate the newsletter content.`
+You have access to a specialized \`source-fetcher\` subagent designed for parallel news extraction. Follow these steps:
+
+1. **Invoke Subagents in Parallel**:
+   - For each source in the list above, invoke the \`source-fetcher\` subagent with these parameters:
+     - \`source_name\`: The website name (e.g., "NICE", "EMA")
+     - \`source_url\`: The link URL
+     - \`topic\`: The topic from the source (e.g., "HTA Decisions")
+     - \`geo_scope\`: The geographic scope (e.g., "UK", "EU")
+     - \`start_date\`: ${config.dateRange.from}
+     - \`end_date\`: ${config.dateRange.to}
+     - \`comment\`: Any additional context from the source
+   - CRITICAL: Invoke all subagents in parallel, NOT sequentially
+   - Wait for all subagents to complete before proceeding
+
+2. **Aggregate JSON Results**:
+   - Each subagent returns a JSON object with structured news items
+   - Parse all JSON responses from the subagents
+   - Combine items from all sources into a unified collection
+   - Handle partial failures gracefully (some subagents may fail while others succeed)
+
+3. **Process and Format**:
+   - Group items by category (HTA, HEOR, Regulatory, Market Access, Clinical, Other)
+   - Within each category, sort by relevance_score (descending), then by date (most recent first)
+   - For failed sources, note which sources could not be fetched and why
+   - Transform the aggregated JSON data into the newsletter format specified above
+
+4. **Newsletter Structure**:
+   - Start with an executive summary highlighting the most important developments (top 3-5 items by relevance score)
+   - Organize content by category or source as specified in the output format
+   - For each news item, include:
+     - Title with source attribution
+     - Publication date
+     - Summary and key points
+     - Implications for market access and HTA
+     - Relevant entities (drugs, companies, indications)
+   - Use professional, clear language suitable for pharmaceutical and biotech executives
+   - Preserve source URLs for verification
+
+5. **Error Handling**:
+   - If all subagents fail, report a comprehensive error explaining the issue
+   - If some subagents fail, generate the newsletter from successful results and note failed sources
+   - If a subagent returns empty results, acknowledge the source was checked but no relevant news was found
+
+Focus on actionable intelligence, highlight urgent items with high relevance scores, and ensure the newsletter provides strategic value for market access teams.`
 }
 
 export function generateAgentConfig(sources: NewsSource[]): object {
