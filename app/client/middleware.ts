@@ -8,6 +8,8 @@ const publicRoutes = [
   '/api/auth/reset-password',
   '/api/auth/refresh',
   '/api/health',
+  '/api/jobs/process',
+  '/api/jobs/trigger',
 ];
 
 const authRoutes = [
