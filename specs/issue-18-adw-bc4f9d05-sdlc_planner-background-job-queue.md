@@ -50,7 +50,9 @@ Use these files to implement the feature:
 
 - **app/client/lib/job-queue.ts** - New singleton job queue service that polls database for queued jobs, executes them via `streamNewsletterAgent`, updates progress/heartbeat, handles cancellation, and detects stalled jobs. Core business logic for background processing.
 
-- **app/client/api/jobs/process/route.ts** - New API endpoint (GET) that runs the job processor in a long-lived streaming connection. Implements heartbeat to keep Cloud Run instance alive. Singleton pattern prevents duplicate processors.
+- **app/client/api/jobs/trigger/route.ts** - New API endpoint (GET/POST) that starts the job processor and returns immediately. Designed for Cloud Scheduler integration with quick response time.
+
+- **app/client/api/jobs/process/route.ts** - New API endpoint (GET) for monitoring the job processor via streaming connection. Implements heartbeat every 30s. Optional debugging endpoint.
 
 - **app/client/api/generate/cancel/route.ts** - New API endpoint (POST) to cancel running jobs. Sets `jobStatus='cancelled'` in database and signals AbortController if job is actively running. Protected by auth middleware.
 
@@ -97,8 +99,9 @@ IMPORTANT: Execute every step in order, top to bottom.
 - Add error handling for database connection issues and generation failures
 - Ensure all database updates are atomic and handle race conditions
 
-### Create Job Processor API Endpoint
-- Create `app/client/api/jobs/process/route.ts` with GET handler
+### Create Job Processor API Endpoints
+- Create `app/client/api/jobs/trigger/route.ts` with GET/POST handler (quick response for Cloud Scheduler)
+- Create `app/client/api/jobs/process/route.ts` with GET handler (streaming for monitoring)
 - Implement long-running streaming endpoint that keeps Cloud Run instance alive
 - Initialize `jobQueueService.start()` on first request (singleton pattern)
 - Send heartbeat SSE event every 30s to maintain connection
@@ -201,7 +204,8 @@ IMPORTANT: Execute every step in order, top to bottom.
 - Execute the new E2E test: `.claude/commands/e2e/test_background_job_queue.md` to validate end-to-end functionality
 - Run `npm run type-check` to verify TypeScript compilation with zero errors
 - Run `npx prisma migrate status` to confirm migration is applied
-- Test manual job processor startup: `curl http://localhost:3000/api/jobs/process` (verify heartbeat SSE events)
+- Test manual job processor startup: `curl http://localhost:3000/api/jobs/trigger` (verify immediate JSON response)
+- (Optional) Test monitoring: `curl http://localhost:3000/api/jobs/process` (verify heartbeat SSE events)
 - Test job creation: POST to `/api/generate` and verify `jobStatus='queued'` in database
 - Test status page: Navigate to `/newsletters/{id}/status` and verify real-time updates
 - Test cancellation: POST to `/api/generate/cancel` with valid generationId, verify jobStatus updated
@@ -222,7 +226,8 @@ IMPORTANT: Execute every step in order, top to bottom.
   - Test POST `/api/generate` creates job with jobStatus='queued', returns generationId
   - Test GET `/api/generate/stream` polls database and streams updates via SSE
   - Test POST `/api/generate/cancel` updates jobStatus and returns success
-  - Test GET `/api/jobs/process` starts job processor, sends heartbeat events
+  - Test GET `/api/jobs/trigger` starts job processor, returns {"success":true}
+  - Test GET `/api/jobs/process` streams heartbeat events for monitoring
 - **Database Query Tests**:
   - Test querying jobs by jobStatus with proper indexes
   - Test atomic updates to progress, currentStep, lastHeartbeat fields
@@ -266,7 +271,8 @@ IMPORTANT: Execute every step in order, top to bottom.
 ## Acceptance Criteria
 - Database schema includes all job queue fields (jobStatus, progress, currentStep, processedAt, lastHeartbeat, priority) with correct indexes
 - POST `/api/generate` creates job with jobStatus='queued' and returns generationId immediately (<500ms response time)
-- Job queue service starts via `/api/jobs/process` endpoint, polls database every 5s for queued jobs
+- Job queue service starts via `/api/jobs/trigger` endpoint (quick response), polls database every 5s for queued jobs
+- Optional `/api/jobs/process` endpoint for monitoring processor via streaming connection
 - Job queue service executes jobs using `streamNewsletterAgent()`, updates progress every 10s, heartbeat every 30s
 - GET `/api/generate/stream` polls database every 2s, streams job updates via SSE with <2s latency
 - Status page (`/newsletters/[id]/status`) displays real-time progress, logs, metadata with visual progress stepper
@@ -298,7 +304,8 @@ Read `.claude/commands/test_e2e.md`, then read and execute your new E2E `.claude
 - `npm run type-check` - Verify TypeScript compilation with zero errors
 - `cd tests && uv run pytest` - Run server tests to validate the feature works with zero regressions
 - `curl -X POST http://localhost:3000/api/generate -H "Content-Type: application/json" -d '{"dateRange":{"from":"2025-01-01","to":"2025-01-07"},"selectedSources":[1,2,3],"outputFormat":"detailed"}' -i` - Manually test job creation, verify 200 response with generationId and jobStatus='queued'
-- `curl http://localhost:3000/api/jobs/process` - Manually start job processor, verify heartbeat SSE events every 30s
+- `curl http://localhost:3000/api/jobs/trigger` - Manually start job processor, verify immediate JSON response
+- `curl http://localhost:3000/api/jobs/process` - (Optional) Monitor processor via heartbeat SSE stream
 - Open browser to `http://localhost:3000/newsletters/{generationId}/status` - Visually verify status page displays real-time updates
 - In status page, open browser DevTools Network tab, verify EventSource connection active, receiving 'status' and 'progress' events
 - Click "Cancel Generation" button on status page, verify job transitions to 'cancelled' state
@@ -308,7 +315,7 @@ Read `.claude/commands/test_e2e.md`, then read and execute your new E2E `.claude
 - Monitor logs during validation: `docker-compose logs -f app`, verify no errors related to job queue or status streaming
 
 ## Notes
-- **Cost Optimization**: Cloud Run scales to zero when no jobs are running. Job processor endpoint (`/api/jobs/process`) should be triggered manually during development (`curl` command). In production, use Cloud Scheduler (free tier) to ping endpoint every 5min, maintaining ~$1.50/month cost.
+- **Cost Optimization**: Cloud Run scales to zero when no jobs are running. Job processor trigger endpoint (`/api/jobs/trigger`) should be called manually during development (`curl` command). In production, use Cloud Scheduler (free tier) to ping `/api/jobs/trigger` every 5min, maintaining ~$1.50/month cost. The quick-response design prevents Cloud Scheduler timeout errors.
 
 - **Concurrency**: Initial implementation processes 1 job at a time (FIFO). Future enhancement can add `MAX_CONCURRENT_JOBS` environment variable to enable parallel processing. Database query should use `FOR UPDATE SKIP LOCKED` to prevent race conditions when scaling to multiple concurrent jobs.
 
@@ -316,7 +323,7 @@ Read `.claude/commands/test_e2e.md`, then read and execute your new E2E `.claude
 
 - **Error Recovery**: Stalled job detection (15min heartbeat timeout) handles cases where job processor crashes mid-execution. Consider adding retry mechanism for failed jobs (e.g., retry up to 3 times with exponential backoff) as future enhancement. Store retry count and error details in `progress` JSON field.
 
-- **Development Workflow**: During development, manually trigger job processor by running `curl http://localhost:3000/api/jobs/process` in a separate terminal. Leave this curl connection open to maintain job processor activity. Use Docker logs (`docker-compose logs -f app`) to monitor job execution in real-time.
+- **Development Workflow**: During development, manually trigger job processor by running `curl http://localhost:3000/api/jobs/trigger`. This starts the processor in the background. Optionally monitor processor status with `curl http://localhost:3000/api/jobs/process` (streaming connection). Use Docker logs (`docker-compose logs -f app`) to monitor job execution in real-time.
 
 - **Status Page Performance**: EventSource connection polls database every 2s. This is acceptable for initial implementation with <10 concurrent users. For production scale (>100 concurrent users), consider using PostgreSQL LISTEN/NOTIFY for push-based updates to reduce database load.
 
@@ -328,7 +335,7 @@ Read `.claude/commands/test_e2e.md`, then read and execute your new E2E `.claude
 
 - **Archive Page Query Optimization**: The "In Progress" section queries `NewsletterGeneration` table, while completed newsletters come from `Newsletter` table. Ensure UI clearly distinguishes between the two (e.g., different card styles, separate sections). Consider adding tab navigation: "Completed" | "In Progress" | "Failed".
 
-- **Graceful Shutdown**: When stopping the server, the job processor should complete the current job or save partial progress before shutting down. Implement signal handlers (SIGTERM, SIGINT) in `/api/jobs/process` to update job status to 'queued' if interrupted mid-execution, allowing processor to resume on restart.
+- **Graceful Shutdown**: When stopping the server, the job processor should complete the current job or save partial progress before shutting down. The job queue service handles shutdown gracefully, updating job status to 'queued' if interrupted mid-execution, allowing processor to resume on restart.
 
 - **Future Enhancements**:
   - Priority queue: higher priority jobs processed first (schema already includes `priority` field)

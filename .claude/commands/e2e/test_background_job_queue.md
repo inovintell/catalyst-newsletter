@@ -14,7 +14,7 @@ So that I can initiate long-running generations without worrying about timeouts
 - Database has at least 3 active news sources configured
 - Claude Agent SDK is properly configured
 - ANTHROPIC_API_KEY is set in environment
-- Job processor is running via `curl http://localhost:3000/api/jobs/process` in a separate terminal
+- Job processor is running via `curl http://localhost:3000/api/jobs/trigger` in a separate terminal
 - Browser developer tools available
 
 ## Test Steps
@@ -22,10 +22,12 @@ So that I can initiate long-running generations without worrying about timeouts
 ### Step 1: Start Job Processor
 
 1. Open a new terminal window
-2. Run: `curl http://localhost:3000/api/jobs/process`
-3. **Verify** the connection establishes and heartbeat events appear every 30 seconds
-4. Take a screenshot of the terminal showing heartbeat events
-5. Leave this terminal running for the duration of the test
+2. Run: `curl http://localhost:3000/api/jobs/trigger`
+3. **Verify** the response shows: `{"success":true,"message":"Job processor started"}`
+4. (Optional) Monitor processor heartbeat: `curl http://localhost:3000/api/jobs/process`
+   - **Verify** the connection establishes and heartbeat events appear every 30 seconds
+   - Take a screenshot of the terminal showing heartbeat events
+5. The processor now runs in the background
 
 ### Step 2: Navigate to Dashboard
 
@@ -157,17 +159,19 @@ So that I can initiate long-running generations without worrying about timeouts
 98. **Verify** progress updates resume
 99. Take a screenshot showing successful reconnection
 
-### Step 14: Verify Job Processor Heartbeat
+### Step 14: Verify Job Processor Heartbeat (Optional)
 
-100. Switch to the terminal running the job processor
-101. **Verify** heartbeat events continue appearing every 30 seconds
+100. In a new terminal, run: `curl http://localhost:3000/api/jobs/process`
+101. **Verify** heartbeat events appear every 30 seconds
 102. **Verify** the heartbeat includes status information (isRunning, currentJobId, activeJobs)
 103. Take a screenshot of multiple heartbeat events in the terminal
+104. Press Ctrl+C to close the monitoring stream (processor continues running)
 
-### Step 15: Stop Job Processor and Verify Stalled Job Detection (Optional)
+### Step 15: Verify Stalled Job Detection (Optional - Advanced Testing)
 
-104. Stop the job processor by pressing Ctrl+C in the terminal
-105. Start a new generation from the dashboard
+104. This test requires stopping the processor service (not recommended in normal testing)
+105. If testing: Restart the application to stop the processor
+106. Start a new generation from the dashboard
 106. **Verify** the job is created and appears in "In Progress"
 107. Wait 16 minutes (or modify stalledJobTimeout to 1 minute for testing)
 108. **Verify** the job is automatically marked as "failed"
@@ -194,7 +198,8 @@ So that I can initiate long-running generations without worrying about timeouts
 
 ## Notes
 
-- The job processor must be running continuously for jobs to be executed
-- In production, use Cloud Scheduler to trigger the job processor endpoint every 5 minutes
+- The job processor is triggered with `/api/jobs/trigger` and runs in background
+- Monitor processor status with `/api/jobs/process` (optional, for debugging)
+- In production, Cloud Scheduler triggers `/api/jobs/trigger` every 5 minutes
 - For faster testing, temporarily modify heartbeat and polling intervals
 - Ensure sufficient ANTHROPIC_API_KEY credits for multiple test generations
