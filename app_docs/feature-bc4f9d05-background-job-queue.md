@@ -31,7 +31,8 @@ Database-backed job queue system enabling async newsletter generation that survi
 ## What Was Built
 
 - **Database job queue system** (`job-queue.ts`) - Singleton service polling database every 5s for queued jobs, executing via `streamNewsletterAgent`, updating progress/heartbeat
-- **Job processor endpoint** (`/api/jobs/process`) - Long-running streaming API maintaining Cloud Run instance with 30s heartbeat
+- **Job processor trigger endpoint** (`/api/jobs/trigger`) - Quick-response endpoint for Cloud Scheduler to start processor
+- **Job processor monitoring endpoint** (`/api/jobs/process`) - Long-running streaming API for monitoring with 30s heartbeat
 - **Status monitoring page** (`/newsletters/[id]/status`) - Real-time UI with EventSource streaming, progress stepper, live logs, auto-reconnection
 - **Async API modifications** - POST `/api/generate` creates queued jobs, GET `/api/generate/stream` polls database for updates
 - **Cancellation endpoint** (`/api/generate/cancel`) - Protected endpoint to abort running jobs via AbortController
@@ -43,7 +44,8 @@ Database-backed job queue system enabling async newsletter generation that survi
 
 - `prisma/schema.prisma`: Added job queue fields to `NewsletterGeneration` (jobStatus, progress, currentStep, processedAt, lastHeartbeat, priority) with indexes on jobStatus+createdAt and lastHeartbeat
 - `app/client/lib/job-queue.ts`: New 389-line singleton service managing job lifecycle (polling, execution, progress tracking, cancellation, stalled detection)
-- `app/client/api/jobs/process/route.ts`: New streaming endpoint keeping Cloud Run alive with 30s heartbeat, singleton processor pattern
+- `app/client/api/jobs/trigger/route.ts`: New quick-response endpoint for Cloud Scheduler, starts processor and returns immediately
+- `app/client/api/jobs/process/route.ts`: Streaming endpoint for monitoring, keeps Cloud Run alive with 30s heartbeat
 - `app/client/api/generate/route.ts`: Modified POST to create jobStatus='queued' immediately, removed inline execution
 - `app/client/api/generate/stream/route.ts`: Refactored from direct execution to database polling every 2s, streams job updates via SSE
 - `app/client/api/generate/cancel/route.ts`: New POST endpoint with auth middleware to cancel jobs by setting jobStatus='cancelled' and triggering AbortController
@@ -117,15 +119,22 @@ Hardcoded in `lib/job-queue.ts`:
 
 **Development**: Manual processor start
 ```bash
-curl http://localhost:3000/api/jobs/process
+curl http://localhost:3000/api/jobs/trigger
 ```
 
 **Production**: Cloud Scheduler triggers every 5min
 ```bash
 gcloud scheduler jobs create http job-processor \
   --schedule="*/5 * * * *" \
-  --uri="https://your-app.run.app/api/jobs/process" \
-  --http-method=GET
+  --uri="https://your-app.run.app/api/jobs/trigger" \
+  --http-method=GET \
+  --location=europe-west1
+```
+
+**Monitoring**: Check processor status
+```bash
+# View processor heartbeat stream
+curl http://localhost:3000/api/jobs/process
 ```
 
 ## Testing
@@ -140,6 +149,12 @@ curl -X POST http://localhost:3000/api/generate \
 ```
 
 2. **Start processor**:
+```bash
+curl http://localhost:3000/api/jobs/trigger
+# Returns immediately: {"success":true,"message":"Job processor started"}
+```
+
+2b. **Monitor processor** (optional):
 ```bash
 curl http://localhost:3000/api/jobs/process
 # Keep connection open, observe heartbeat events every 30s
@@ -231,7 +246,9 @@ psql $DATABASE_URL -c "SELECT id, jobStatus, currentStep FROM NewsletterGenerati
 - Status page uses generationId as capability token (no auth required)
 - Cancellation endpoint protected by auth middleware
 - No rate limiting on status endpoint (consider for production)
-- Job processor endpoint public (no sensitive data exposed)
+- Job processor endpoints public (no sensitive data exposed)
+  - `/api/jobs/trigger` - Cloud Scheduler trigger (quick response)
+  - `/api/jobs/process` - Monitoring stream (debugging only)
 
 ### Future Enhancements
 

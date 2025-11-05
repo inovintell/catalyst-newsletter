@@ -247,11 +247,15 @@ catalyst-newsletter/
 - `GET /api/health` - Health check endpoint
 
 ### Background Jobs
-- `GET /api/jobs/process` - Trigger job processor (no authentication required)
-  - Returns SSE stream with heartbeat events
-  - Starts job queue service for background processing
+- `GET /api/jobs/trigger` - Trigger job processor (no authentication required)
+  - Starts job processor and returns immediately
+  - Returns JSON response with status
   - In production: triggered by Cloud Scheduler every 5 minutes
-  - During development: manually trigger with `curl http://localhost:3000/api/jobs/process`
+  - During development: manually trigger with `curl http://localhost:3000/api/jobs/trigger`
+- `GET /api/jobs/process` - Long-running processor endpoint (no authentication required)
+  - Returns SSE stream with heartbeat events
+  - Maintains connection for monitoring processor status
+  - Used for debugging and manual monitoring
 
 ## Database Schema
 
