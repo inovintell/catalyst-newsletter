@@ -24,10 +24,21 @@ export async function GET(request: NextRequest) {
 
   const stream = new ReadableStream({
     async start(controller) {
+      let isClosed = false
+
       const sendEvent = (event: string, data: any) => {
-        controller.enqueue(
-          encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
-        )
+        if (!isClosed) {
+          controller.enqueue(
+            encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+          )
+        }
+      }
+
+      const closeController = () => {
+        if (!isClosed) {
+          isClosed = true
+          controller.close()
+        }
       }
 
       try {
@@ -41,7 +52,7 @@ export async function GET(request: NextRequest) {
 
         if (!generation) {
           sendEvent('error', { message: 'Generation not found' })
-          controller.close()
+          closeController()
           return
         }
 
@@ -76,7 +87,7 @@ export async function GET(request: NextRequest) {
             generationId,
             configSnapshot: JSON.stringify(config).substring(0, 500)
           })
-          controller.close()
+          closeController()
           return
         }
 
@@ -119,7 +130,7 @@ export async function GET(request: NextRequest) {
             }
           })
 
-          controller.close()
+          closeController()
           return
         }
 
@@ -212,7 +223,7 @@ ${config.includeExecutiveSummary ? 'Include Executive Summary: Yes\n' : ''}${con
               success: false,
               error: apiError?.message || 'Generation failed'
             })
-            controller.close()
+            closeController()
             return
           }
         } else {
@@ -237,7 +248,7 @@ ${config.includeExecutiveSummary ? 'Include Executive Summary: Yes\n' : ''}${con
             success: false,
             error: 'ANTHROPIC_API_KEY is not configured'
           })
-          controller.close()
+          closeController()
           return
         }
 
@@ -297,7 +308,7 @@ ${config.includeExecutiveSummary ? 'Include Executive Summary: Yes\n' : ''}${con
           requestId: requestId
         })
       } finally {
-        controller.close()
+        closeController()
       }
     }
   })
