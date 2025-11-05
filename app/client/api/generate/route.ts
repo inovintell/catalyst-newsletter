@@ -6,6 +6,46 @@ import { createGenerationTrace } from '@/lib/observability/langfuse'
 
 const prisma = new PrismaClient()
 
+export const GET = withAuth(async (request: NextRequest) => {
+  try {
+    const searchParams = request.nextUrl.searchParams
+    const id = searchParams.get('id')
+
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Generation ID is required' },
+        { status: 400 }
+      )
+    }
+
+    const generation = await prisma.newsletterGeneration.findUnique({
+      where: { id: parseInt(id) }
+    })
+
+    if (!generation) {
+      return NextResponse.json(
+        { error: 'Generation not found' },
+        { status: 404 }
+      )
+    }
+
+    return NextResponse.json({
+      id: generation.id,
+      status: generation.status,
+      output: generation.output,
+      error: generation.error,
+      completedAt: generation.completedAt
+    })
+
+  } catch (error) {
+    console.error('Error fetching generation status:', error)
+    return NextResponse.json(
+      { error: 'Failed to fetch generation status' },
+      { status: 500 }
+    )
+  }
+})
+
 export const POST = withAuth(async (request: NextRequest, context) => {
   try {
     const body = await request.json()
