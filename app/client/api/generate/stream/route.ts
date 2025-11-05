@@ -22,15 +22,31 @@ export async function GET(request: NextRequest) {
 
   const encoder = new TextEncoder()
 
+  // Create AbortController for cancellation
+  const abortController = new AbortController()
+  const signal = abortController.signal
+
+  // Handle client disconnect
+  request.signal.addEventListener('abort', () => {
+    console.log(`[${requestId}] Client disconnected, aborting generation`)
+    abortController.abort()
+  })
+
   const stream = new ReadableStream({
     async start(controller) {
       let isClosed = false
+      let claudeStreamGenerator: AsyncGenerator<string> | null = null
 
       const sendEvent = (event: string, data: any) => {
-        if (!isClosed) {
-          controller.enqueue(
-            encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
-          )
+        if (!isClosed && !signal.aborted) {
+          try {
+            controller.enqueue(
+              encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+            )
+          } catch (e) {
+            console.log(`[${requestId}] Failed to enqueue (controller closed)`)
+            isClosed = true
+          }
         }
       }
 
@@ -40,6 +56,19 @@ export async function GET(request: NextRequest) {
           controller.close()
         }
       }
+
+      // Handle abort signal
+      signal.addEventListener('abort', async () => {
+        console.log(`[${requestId}] Abort signal received, cleaning up`)
+        if (claudeStreamGenerator) {
+          try {
+            await claudeStreamGenerator.return(undefined)
+          } catch (e) {
+            console.log(`[${requestId}] Error closing claude stream:`, e)
+          }
+        }
+        closeController()
+      })
 
       try {
         // Initial status
@@ -159,7 +188,7 @@ ${config.includeExecutiveSummary ? 'Include Executive Summary: Yes\n' : ''}${con
           try {
             // Use the Claude Agent SDK with streaming and tracing
             // Pass the traceId from the generation record to link to the parent trace
-            for await (const chunk of streamNewsletterAgent(agentPrompt, {
+            claudeStreamGenerator = streamNewsletterAgent(agentPrompt, {
               name: 'Newsletter Agent Streaming Generation',
               traceId: generation.traceId || undefined, // Link to parent trace
               metadata: {
@@ -174,12 +203,45 @@ ${config.includeExecutiveSummary ? 'Include Executive Summary: Yes\n' : ''}${con
                 agentTools: ['WebFetch', 'WebSearch', 'Read', 'Write'],
               },
               tags: ['newsletter', 'streaming', 'generation', 'agent'],
-            })) {
+            })
+
+            for await (const chunk of claudeStreamGenerator) {
+              // Check if client disconnected
+              if (signal.aborted) {
+                console.log(`[${requestId}] Client aborted, stopping stream`)
+
+                // Mark generation as cancelled
+                await prisma.newsletterGeneration.update({
+                  where: { id: parseInt(generationId) },
+                  data: {
+                    status: 'failed',
+                    error: 'Generation cancelled by client disconnect',
+                    completedAt: new Date()
+                  }
+                })
+
+                closeController()
+                return
+              }
+
               newsletterContent += chunk
               // Send chunks to client for real-time display
               sendEvent('content', { chunk })
             }
+
+            // Check one more time after loop completes
+            if (signal.aborted) {
+              console.log(`[${requestId}] Client aborted after stream completed`)
+              closeController()
+              return
+            }
           } catch (apiError: any) {
+            // Skip error handling if aborted
+            if (signal.aborted) {
+              console.log(`[${requestId}] Skipping error handling due to abort`)
+              closeController()
+              return
+            }
             // Log full technical API error details server-side
             console.error(`[${requestId}] Claude API error:`, {
               error: apiError,

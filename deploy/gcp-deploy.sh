@@ -224,7 +224,7 @@ gcloud run deploy ${SERVICE_NAME} \
     --add-cloudsql-instances="${PROJECT_ID}:${REGION}:newsletter-db" \
     --memory 1Gi \
     --cpu 1 \
-    --timeout 300 \
+    --timeout 600 \
     --concurrency 100 \
     --min-instances 0 \
     --max-instances 10 \
