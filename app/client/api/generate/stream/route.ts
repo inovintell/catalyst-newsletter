@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
         })
 
         let lastProgressUpdate = ''
-        let startTime = Date.now()
+        const startTime = Date.now()
         const maxPollTime = 10 * 60 * 1000 // 10 minutes timeout
 
         // Poll database for updates every 2 seconds

@@ -24,16 +24,6 @@ export default function StatusPage() {
   const reconnectAttemptsRef = useRef(0)
   const maxReconnectAttempts = 3
 
-  useEffect(() => {
-    connectToEventSource()
-
-    return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close()
-      }
-    }
-  }, [generationId])
-
   const connectToEventSource = () => {
     if (eventSourceRef.current) {
       eventSourceRef.current.close()
@@ -106,6 +96,16 @@ export default function StatusPage() {
       }
     }
   }
+
+  useEffect(() => {
+    connectToEventSource()
+
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close()
+      }
+    }
+  }, [generationId])
 
   const handleCancel = async () => {
     if (!confirm('Are you sure you want to cancel this generation?')) {
