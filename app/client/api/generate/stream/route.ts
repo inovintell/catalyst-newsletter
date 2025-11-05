@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { PrismaClient } from '@prisma/client'
-import { streamNewsletterAgent, ClaudeAPIError } from '@/lib/claude-agent'
-import { generateAgentConfig } from '@/lib/agent-manager'
 
 const prisma = new PrismaClient()
 
@@ -16,29 +14,18 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  // Generate unique request ID for tracking
   const requestId = crypto.randomUUID()
-  console.log(`[${requestId}] Starting newsletter generation for ID: ${generationId}`)
+  console.log(`[${requestId}] Starting status stream for generation ID: ${generationId}`)
 
   const encoder = new TextEncoder()
-
-  // Create AbortController for cancellation
-  const abortController = new AbortController()
-  const signal = abortController.signal
-
-  // Handle client disconnect
-  request.signal.addEventListener('abort', () => {
-    console.log(`[${requestId}] Client disconnected, aborting generation`)
-    abortController.abort()
-  })
 
   const stream = new ReadableStream({
     async start(controller) {
       let isClosed = false
-      let claudeStreamGenerator: AsyncGenerator<string> | null = null
+      let pollInterval: NodeJS.Timeout | null = null
 
       const sendEvent = (event: string, data: any) => {
-        if (!isClosed && !signal.aborted) {
+        if (!isClosed) {
           try {
             controller.enqueue(
               encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
@@ -53,28 +40,21 @@ export async function GET(request: NextRequest) {
       const closeController = () => {
         if (!isClosed) {
           isClosed = true
+          if (pollInterval) {
+            clearInterval(pollInterval)
+          }
           controller.close()
         }
       }
 
-      // Handle abort signal
-      signal.addEventListener('abort', async () => {
-        console.log(`[${requestId}] Abort signal received, cleaning up`)
-        if (claudeStreamGenerator) {
-          try {
-            await claudeStreamGenerator.return(undefined)
-          } catch (e) {
-            console.log(`[${requestId}] Error closing claude stream:`, e)
-          }
-        }
+      // Handle client disconnect
+      request.signal.addEventListener('abort', () => {
+        console.log(`[${requestId}] Client disconnected, stopping stream`)
         closeController()
       })
 
       try {
-        // Initial status
-        sendEvent('status', { message: 'Initializing newsletter generation...' })
-
-        // Get generation record
+        // Verify generation exists
         const generation = await prisma.newsletterGeneration.findUnique({
           where: { id: parseInt(generationId) }
         })
@@ -85,291 +65,159 @@ export async function GET(request: NextRequest) {
           return
         }
 
-        // Update status to processing
-        await prisma.newsletterGeneration.update({
-          where: { id: parseInt(generationId) },
-          data: { status: 'processing' }
+        // Send initial status
+        sendEvent('status', {
+          message: generation.currentStep || 'Job queued for processing',
+          jobStatus: generation.jobStatus
         })
 
-        sendEvent('status', { message: 'Fetching news sources...' })
+        let lastProgressUpdate = ''
+        let startTime = Date.now()
+        const maxPollTime = 10 * 60 * 1000 // 10 minutes timeout
 
-        // Get the selected sources
-        const config = generation.config as any
-        console.log(`[${requestId}] Retrieved generation config:`, {
-          generationId,
-          configKeys: Object.keys(config || {}),
-          hasSelectedSources: !!config?.selectedSources,
-          selectedSourcesType: Array.isArray(config?.selectedSources) ? 'array' : typeof config?.selectedSources
-        })
-
-        const selectedSourceIds = config.selectedSources || []
-        console.log(`[${requestId}] Extracted selectedSourceIds:`, {
-          count: selectedSourceIds.length,
-          ids: selectedSourceIds
-        })
-
-        // Validate we have source IDs
-        if (!selectedSourceIds || selectedSourceIds.length === 0) {
-          console.error(`[${requestId}] No source IDs found in config`)
-          sendEvent('error', {
-            message: 'No sources configured for this generation. The generation config is missing source IDs.',
-            generationId,
-            configSnapshot: JSON.stringify(config).substring(0, 500)
-          })
-          closeController()
-          return
-        }
-
-        const sources = await prisma.newsSource.findMany({
-          where: {
-            id: { in: selectedSourceIds },
-            active: true
-          },
-          orderBy: [
-            { importanceLevel: 'desc' },
-            { topic: 'asc' }
-          ]
-        })
-
-        console.log(`[${requestId}] Database query results:`, {
-          requestedIds: selectedSourceIds,
-          foundCount: sources.length,
-          foundIds: sources.map(s => s.id),
-          foundNames: sources.map(s => s.website)
-        })
-
-        // Validate we found sources
-        if (sources.length === 0) {
-          console.error(`[${requestId}] No active sources found in database`, {
-            requestedIds: selectedSourceIds
-          })
-          sendEvent('error', {
-            message: 'No active sources found in database. The requested sources may be inactive or have been deleted.',
-            generationId,
-            requestedIds: selectedSourceIds
-          })
-
-          // Update generation status to failed
-          await prisma.newsletterGeneration.update({
-            where: { id: parseInt(generationId) },
-            data: {
-              status: 'failed',
-              error: 'No active sources found',
-              completedAt: new Date()
-            }
-          })
-
-          closeController()
-          return
-        }
-
-        sendEvent('status', { message: `Analyzing ${sources.length} sources...` })
-
-        // Build the source list for the agent
-        const sourceList = sources.map(s =>
-          `- ${s.website} (${s.topic}, ${s.geoScope}): ${s.link}${s.comment ? ` - ${s.comment}` : ''}`
-        ).join('\n')
-
-        // Build user prompt with dynamic variables only
-        const agentPrompt = `Date Range: ${config.dateRange?.from || 'Last 7 days'} to ${config.dateRange?.to || 'Today'}
-
-News Sources to Monitor:
-${sourceList}
-
-Output Format: ${config.outputFormat || 'detailed'}
-${config.includeExecutiveSummary ? 'Include Executive Summary: Yes\n' : ''}${config.groupByTopic ? 'Group By Topic: Yes\n' : ''}${config.topics?.length ? `Focus Topics: ${config.topics.join(', ')}\n` : ''}${config.geoScopes?.length ? `Focus Regions: ${config.geoScopes.join(', ')}\n` : ''}`
-
-        sendEvent('status', { message: 'Generating newsletter with Claude AI...' })
-
-        let newsletterContent = ''
-
-        // Check if we have an API key to use real Claude Agent
-        if (process.env.ANTHROPIC_API_KEY) {
+        // Poll database for updates every 2 seconds
+        pollInterval = setInterval(async () => {
           try {
-            // Use the Claude Agent SDK with streaming and tracing
-            // Pass the traceId from the generation record to link to the parent trace
-            claudeStreamGenerator = streamNewsletterAgent(agentPrompt, {
-              name: 'Newsletter Agent Streaming Generation',
-              traceId: generation.traceId || undefined, // Link to parent trace
-              metadata: {
-                model: process.env.CLAUDE_MODEL || 'claude-sonnet-4-5-20250929',
-                temperature: 0.7,
-                maxTokens: 8000,
-                operation: 'agent_streaming_generation',
-                generationId,
-                sourcesCount: sources.length,
-                dateRange: config.dateRange,
-                outputFormat: config.outputFormat,
-                agentTools: ['WebFetch', 'WebSearch', 'Read', 'Write'],
-              },
-              tags: ['newsletter', 'streaming', 'generation', 'agent'],
+            if (isClosed || request.signal.aborted) {
+              closeController()
+              return
+            }
+
+            // Check timeout
+            if (Date.now() - startTime > maxPollTime) {
+              sendEvent('error', { message: 'Generation timeout - no progress after 10 minutes' })
+              closeController()
+              return
+            }
+
+            const job = await prisma.newsletterGeneration.findUnique({
+              where: { id: parseInt(generationId) }
             })
 
-            for await (const chunk of claudeStreamGenerator) {
-              // Check if client disconnected
-              if (signal.aborted) {
-                console.log(`[${requestId}] Client aborted, stopping stream`)
+            if (!job) {
+              sendEvent('error', { message: 'Generation not found' })
+              closeController()
+              return
+            }
 
-                // Mark generation as cancelled
-                await prisma.newsletterGeneration.update({
-                  where: { id: parseInt(generationId) },
-                  data: {
-                    status: 'failed',
-                    error: 'Generation cancelled by client disconnect',
-                    completedAt: new Date()
+            // Handle different job states
+            switch (job.jobStatus) {
+              case 'queued':
+                // Send status update if currentStep changed
+                if (job.currentStep && job.currentStep !== lastProgressUpdate) {
+                  sendEvent('status', {
+                    message: job.currentStep,
+                    jobStatus: 'queued'
+                  })
+                  lastProgressUpdate = job.currentStep
+                }
+                break
+
+              case 'running':
+                // Send progress updates
+                const progress = job.progress as any
+                if (progress?.logs) {
+                  const latestLog = progress.logs[progress.logs.length - 1]
+                  if (latestLog !== lastProgressUpdate) {
+                    sendEvent('status', {
+                      message: job.currentStep || latestLog,
+                      jobStatus: 'running',
+                      progress: progress
+                    })
+                    lastProgressUpdate = latestLog
+                  }
+                }
+
+                // If we have output, stream chunks
+                if (job.output) {
+                  // Send content chunks (simulate streaming by sending in parts)
+                  const chunkSize = 100
+                  const output = job.output
+                  for (let i = 0; i < output.length; i += chunkSize) {
+                    const chunk = output.substring(i, i + chunkSize)
+                    sendEvent('content', { chunk })
+                  }
+                }
+                break
+
+              case 'completed':
+                // Send completion event
+                sendEvent('status', {
+                  message: 'Newsletter generation completed',
+                  jobStatus: 'completed'
+                })
+
+                if (job.output) {
+                  sendEvent('complete', {
+                    message: 'Newsletter generated successfully!',
+                    generationId: job.id,
+                    output: job.output
+                  })
+                }
+
+                // Create newsletter record for archive if not exists
+                const existingNewsletter = await prisma.newsletter.findFirst({
+                  where: {
+                    parameters: {
+                      path: ['generationId'],
+                      equals: job.id
+                    }
                   }
                 })
 
+                if (!existingNewsletter && job.output) {
+                  await prisma.newsletter.create({
+                    data: {
+                      title: `Healthcare Newsletter - ${new Date().toLocaleDateString()}`,
+                      content: { output: job.output } as any,
+                      sourcesUsed: job.config as any,
+                      parameters: {
+                        ...job.config as any,
+                        generationId: job.id
+                      } as any,
+                      status: 'completed'
+                    }
+                  })
+                }
+
                 closeController()
                 return
-              }
 
-              newsletterContent += chunk
-              // Send chunks to client for real-time display
-              sendEvent('content', { chunk })
+              case 'failed':
+                sendEvent('error', {
+                  message: job.error || 'Generation failed',
+                  jobStatus: 'failed'
+                })
+                sendEvent('done', {
+                  success: false,
+                  error: job.error || 'Generation failed'
+                })
+                closeController()
+                return
+
+              case 'cancelled':
+                sendEvent('error', {
+                  message: 'Generation was cancelled',
+                  jobStatus: 'cancelled'
+                })
+                sendEvent('done', {
+                  success: false,
+                  error: 'Generation cancelled'
+                })
+                closeController()
+                return
             }
 
-            // Check one more time after loop completes
-            if (signal.aborted) {
-              console.log(`[${requestId}] Client aborted after stream completed`)
-              closeController()
-              return
-            }
-          } catch (apiError: any) {
-            // Skip error handling if aborted
-            if (signal.aborted) {
-              console.log(`[${requestId}] Skipping error handling due to abort`)
-              closeController()
-              return
-            }
-            // Log full technical API error details server-side
-            console.error(`[${requestId}] Claude API error:`, {
-              error: apiError,
-              status: apiError?.status,
-              message: apiError?.message,
-              stack: apiError?.stack,
-              timestamp: new Date().toISOString()
-            })
-
-            // Send error event with prompt information to client
-            if (apiError instanceof ClaudeAPIError) {
-              sendEvent('error', {
-                type: apiError.type,
-                message: apiError.message,
-                status: apiError.status,
-                prompt: apiError.prompt,
-                details: apiError.details
-              })
-            } else {
-              // Handle non-ClaudeAPIError cases
-              sendEvent('error', {
-                type: 'unknown',
-                message: apiError?.message || 'An unexpected error occurred',
-                status: apiError?.status,
-                prompt: agentPrompt,
-                details: apiError?.stack || 'No additional details available'
-              })
-            }
-
-            // Mark generation as failed
-            await prisma.newsletterGeneration.update({
-              where: { id: parseInt(generationId) },
-              data: {
-                status: 'failed',
-                completedAt: new Date()
-              }
-            })
-
-            // End the stream with error
-            sendEvent('done', {
-              success: false,
-              error: apiError?.message || 'Generation failed'
-            })
-            closeController()
-            return
+          } catch (pollError) {
+            console.error(`[${requestId}] Polling error:`, pollError)
           }
-        } else {
-          // No API key configured - send error
-          console.log('No ANTHROPIC_API_KEY found')
-          sendEvent('error', {
-            type: 'authentication',
-            message: 'ANTHROPIC_API_KEY is not configured',
-            prompt: agentPrompt,
-            details: 'Please configure ANTHROPIC_API_KEY environment variable'
-          })
-
-          await prisma.newsletterGeneration.update({
-            where: { id: parseInt(generationId) },
-            data: {
-              status: 'failed',
-              completedAt: new Date()
-            }
-          })
-
-          sendEvent('done', {
-            success: false,
-            error: 'ANTHROPIC_API_KEY is not configured'
-          })
-          closeController()
-          return
-        }
-
-        sendEvent('status', { message: 'Formatting output...' })
-
-        // Update generation with output
-        await prisma.newsletterGeneration.update({
-          where: { id: parseInt(generationId) },
-          data: {
-            status: 'completed',
-            output: newsletterContent,
-            completedAt: new Date()
-          }
-        })
-
-        // Also create a newsletter record for archive
-        await prisma.newsletter.create({
-          data: {
-            title: `Healthcare Newsletter - ${new Date().toLocaleDateString()}`,
-            content: { output: newsletterContent } as any,
-            sourcesUsed: generation.config as any,
-            parameters: generation.config as any,
-            status: 'completed'
-          }
-        })
-
-        sendEvent('complete', {
-          message: 'Newsletter generated successfully!',
-          generationId,
-          output: newsletterContent
-        })
+        }, 2000) // Poll every 2 seconds
 
       } catch (error) {
-        // Log full technical error details server-side with request ID
-        console.error(`[${requestId}] Generation error:`, {
-          generationId,
-          error: error instanceof Error ? {
-            message: error.message,
-            stack: error.stack,
-            name: error.name
-          } : error,
-          timestamp: new Date().toISOString()
-        })
-
-        await prisma.newsletterGeneration.update({
-          where: { id: parseInt(generationId) },
-          data: {
-            status: 'failed',
-            error: error instanceof Error ? error.message : 'Unknown error',
-            completedAt: new Date()
-          }
-        })
-
-        // Send user-friendly error message with request ID only
+        console.error(`[${requestId}] Stream error:`, error)
         sendEvent('error', {
-          message: 'We encountered an issue generating your newsletter.',
-          requestId: requestId
+          message: 'Failed to stream generation status'
         })
-      } finally {
         closeController()
       }
     }

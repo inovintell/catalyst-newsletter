@@ -13,14 +13,31 @@ interface Newsletter {
   type?: string
 }
 
+interface InProgressJob {
+  id: number
+  currentStep: string | null
+  jobStatus: string
+  createdAt: string
+  progress: any
+}
+
 export default function NewslettersPage() {
   const [newsletters, setNewsletters] = useState<Newsletter[]>([])
+  const [inProgressJobs, setInProgressJobs] = useState<InProgressJob[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const router = useRouter()
 
   useEffect(() => {
     fetchNewsletters()
+    fetchInProgressJobs()
+
+    // Poll for in-progress jobs every 3 seconds
+    const interval = setInterval(() => {
+      fetchInProgressJobs()
+    }, 3000)
+
+    return () => clearInterval(interval)
   }, [filter])
 
   const fetchNewsletters = async () => {
@@ -44,6 +61,38 @@ export default function NewslettersPage() {
       setNewsletters([])
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchInProgressJobs = async () => {
+    try {
+      const response = await fetch('/api/generate?jobStatus=queued,running')
+      if (!response.ok) return
+
+      const data = await response.json()
+      if (Array.isArray(data)) {
+        setInProgressJobs(data)
+      }
+    } catch (error) {
+      console.error('Error fetching in-progress jobs:', error)
+    }
+  }
+
+  const handleCancelJob = async (jobId: number) => {
+    if (!confirm('Are you sure you want to cancel this generation?')) return
+
+    try {
+      const response = await fetch('/api/generate/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ generationId: jobId })
+      })
+
+      if (response.ok) {
+        fetchInProgressJobs()
+      }
+    } catch (error) {
+      console.error('Error cancelling job:', error)
     }
   }
 
@@ -114,6 +163,49 @@ export default function NewslettersPage() {
           + Generate New
         </button>
       </div>
+
+      {/* In Progress Section */}
+      {inProgressJobs.length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">In Progress</h2>
+          <div className="bg-white rounded-lg shadow-md overflow-hidden border-2 border-blue-200">
+            {inProgressJobs.map((job) => (
+              <div key={job.id} className="p-4 border-b last:border-b-0 flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3">
+                    <div className="animate-pulse w-3 h-3 bg-blue-500 rounded-full"></div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        Generation #{job.id}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {job.currentStep || 'Processing...'}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Started: {new Date(job.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => router.push(`/newsletters/${job.id}/status`)}
+                    className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition"
+                  >
+                    View Status
+                  </button>
+                  <button
+                    onClick={() => handleCancelJob(job.id)}
+                    className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="mb-6 flex gap-2">

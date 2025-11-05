@@ -159,8 +159,15 @@ export default function DashboardPage() {
 
       const { generationId } = await response.json()
 
-      // Connect to SSE stream with reconnection logic
-      connectToEventSource(generationId)
+      console.log('[Dashboard] Generation queued:', generationId)
+
+      // Show toast notification
+      showToast('Generation started! Redirecting to status page...', 'success')
+
+      // Redirect to status page
+      setTimeout(() => {
+        window.location.href = `/newsletters/${generationId}/status`
+      }, 500)
 
     } catch (error) {
       console.error('Error generating newsletter:', error)
