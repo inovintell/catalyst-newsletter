@@ -159,51 +159,8 @@ export default function DashboardPage() {
 
       const { generationId } = await response.json()
 
-      // Connect to SSE stream for real-time updates
-      const eventSource = new EventSource(`/api/generate/stream?id=${generationId}`)
-
-      eventSource.addEventListener('status', (event) => {
-        const data = JSON.parse(event.data)
-        setGenerationStatus(data.message)
-      })
-
-      eventSource.addEventListener('complete', (event) => {
-        const data = JSON.parse(event.data)
-        setGenerationStatus('Newsletter generated successfully!')
-        eventSource.close()
-
-        // Store output and redirect
-        sessionStorage.setItem('newsletterOutput', data.output)
-        sessionStorage.setItem('generationId', data.generationId)
-
-        setTimeout(() => {
-          window.location.href = '/newsletters/output'
-        }, 1500)
-      })
-
-      eventSource.addEventListener('error', (event: any) => {
-        const data = event.data ? JSON.parse(event.data) : {}
-        const errorMessage = data.message || 'Error generating newsletter'
-
-        setHasError(true)
-        setGenerationStatus(errorMessage)
-        eventSource.close()
-
-        // Store error information in sessionStorage for output page
-        sessionStorage.setItem('newsletterError', JSON.stringify({
-          type: data.type || 'unknown',
-          message: errorMessage,
-          status: data.status,
-          prompt: data.prompt,
-          details: data.details
-        }))
-        sessionStorage.setItem('generationId', generationId)
-
-        // Redirect to output page to show error details
-        setTimeout(() => {
-          window.location.href = '/newsletters/output'
-        }, 1500)
-      })
+      // Connect to SSE stream with reconnection logic
+      connectToEventSource(generationId)
 
     } catch (error) {
       console.error('Error generating newsletter:', error)
@@ -219,6 +176,151 @@ export default function DashboardPage() {
         setGenerationStatus('')
       }, 3000)
     }
+  }
+
+  const connectToEventSource = (generationId: string, attempt: number = 0) => {
+    const eventSource = new EventSource(`/api/generate/stream?id=${generationId}`)
+    let connectionClosed = false
+
+    eventSource.addEventListener('status', (event) => {
+      const data = JSON.parse(event.data)
+      setGenerationStatus(data.message)
+    })
+
+    eventSource.addEventListener('complete', (event) => {
+      const data = JSON.parse(event.data)
+      setGenerationStatus('Newsletter generated successfully!')
+      connectionClosed = true
+      eventSource.close()
+
+      // Store output and redirect
+      sessionStorage.setItem('newsletterOutput', data.output)
+      sessionStorage.setItem('generationId', data.generationId)
+
+      setTimeout(() => {
+        window.location.href = '/newsletters/output'
+      }, 1500)
+    })
+
+    eventSource.addEventListener('error', (event: any) => {
+      const data = event.data ? JSON.parse(event.data) : {}
+      const errorMessage = data.message || 'Error generating newsletter'
+
+      setHasError(true)
+      setGenerationStatus(errorMessage)
+      connectionClosed = true
+      eventSource.close()
+
+      // Store error information in sessionStorage for output page
+      sessionStorage.setItem('newsletterError', JSON.stringify({
+        type: data.type || 'unknown',
+        message: errorMessage,
+        status: data.status,
+        prompt: data.prompt,
+        details: data.details
+      }))
+      sessionStorage.setItem('generationId', generationId)
+
+      // Redirect to output page to show error details
+      setTimeout(() => {
+        window.location.href = '/newsletters/output'
+      }, 1500)
+    })
+
+    eventSource.onerror = (error) => {
+      console.error('[Dashboard] EventSource connection error:', error)
+      eventSource.close()
+
+      if (connectionClosed) return
+
+      const maxReconnectAttempts = 3
+      const nextAttempt = attempt + 1
+
+      if (nextAttempt <= maxReconnectAttempts) {
+        // Exponential backoff: 2s, 4s, 8s
+        const backoffDelay = Math.pow(2, attempt) * 2000
+        setGenerationStatus(`Connection lost, reconnecting... (attempt ${nextAttempt}/${maxReconnectAttempts})`)
+
+        setTimeout(() => {
+          connectToEventSource(generationId, nextAttempt)
+        }, backoffDelay)
+      } else {
+        // Fall back to polling after max reconnection attempts
+        setGenerationStatus('Switched to polling mode, checking status...')
+        startPolling(generationId)
+      }
+    }
+  }
+
+  const startPolling = (generationId: string) => {
+    const pollInterval = 3000 // 3 seconds
+    const maxPollingDuration = 10 * 60 * 1000 // 10 minutes
+    const startTime = Date.now()
+
+    const pollIntervalId = setInterval(async () => {
+      try {
+        // Check if we've exceeded max polling duration
+        if (Date.now() - startTime > maxPollingDuration) {
+          clearInterval(pollIntervalId)
+          setHasError(true)
+          setGenerationStatus('Generation timeout exceeded. Please try again.')
+          showToast('Newsletter generation took too long. Please try again.', 'error')
+          setTimeout(() => {
+            setGenerating(false)
+            setGenerationStatus('')
+          }, 3000)
+          return
+        }
+
+        const response = await fetch(`/api/generate?id=${generationId}`, {
+          credentials: 'include'
+        })
+
+        if (!response.ok) {
+          console.error('[Dashboard] Polling request failed:', response.status)
+          return
+        }
+
+        const generation = await response.json()
+
+        if (generation.status === 'completed') {
+          clearInterval(pollIntervalId)
+          setGenerationStatus('Newsletter generated successfully!')
+
+          // Store output and redirect
+          sessionStorage.setItem('newsletterOutput', generation.output)
+          sessionStorage.setItem('generationId', generationId)
+
+          setTimeout(() => {
+            window.location.href = '/newsletters/output'
+          }, 1500)
+        } else if (generation.status === 'failed') {
+          clearInterval(pollIntervalId)
+          setHasError(true)
+          setGenerationStatus(generation.error || 'Newsletter generation failed')
+
+          // Store error information
+          sessionStorage.setItem('newsletterError', JSON.stringify({
+            type: 'generation_failed',
+            message: generation.error || 'Newsletter generation failed',
+            status: generation.status
+          }))
+          sessionStorage.setItem('generationId', generationId)
+
+          setTimeout(() => {
+            window.location.href = '/newsletters/output'
+          }, 1500)
+        } else {
+          // Still processing
+          setGenerationStatus(`Checking status... (${generation.status})`)
+        }
+      } catch (error) {
+        console.error('[Dashboard] Polling error:', error)
+      }
+    }, pollInterval)
+
+    // Store interval ID for cleanup on unmount
+    return () => clearInterval(pollIntervalId)
   }
 
   return (
