@@ -73,3 +73,14 @@ This prompt helps you determine what documentation you should read based on the 
     - When working with environment variable configuration for LLM models
     - When migrating from hardcoded model names to semantic tier names
     - When debugging tier fallback behavior or backward compatibility issues
+
+- app_docs/feature-65ae0d2c-parallel-source-fetching.md
+  - Conditions:
+    - When working with newsletter generation or source fetching
+    - When implementing or modifying Claude Agent SDK subagents
+    - When troubleshooting parallel execution or performance issues
+    - When adding new newsletter sources or modifying source configurations
+    - When working with agent prompt engineering or orchestration
+    - When debugging JSON aggregation or relevance scoring
+    - When investigating newsletter generation failures or partial results
+    - When implementing error handling for source fetching

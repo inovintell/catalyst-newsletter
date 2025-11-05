@@ -101,10 +101,14 @@ export async function requireAuth(
   const context = await getAuthContext(req);
 
   if (!context.isAuthenticated) {
-    return NextResponse.json(
+    const response = NextResponse.json(
       { error: 'Authentication required' },
       { status: 401 }
     );
+    // Clear invalid cookies
+    response.cookies.delete('auth-token');
+    response.cookies.delete('refresh-token');
+    return response;
   }
 
   if (requiredRole && context.user?.role !== requiredRole) {

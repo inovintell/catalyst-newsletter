@@ -38,7 +38,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // If on auth route with valid token, redirect to dashboard
+  // If on auth route with token, redirect to dashboard
   if (isAuthRoute && authToken) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }

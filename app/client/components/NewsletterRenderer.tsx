@@ -197,12 +197,12 @@ const components: Components = {
       {...props}
     />
   ),
-  img: ({ src, alt, ...props }) => (
+  img: ({ src, alt }) => (
+    // eslint-disable-next-line @next/next/no-img-element
     <img
       src={src}
       alt={alt || ''}
       className="max-w-full h-auto rounded-lg my-4 shadow-md"
-      {...props}
     />
   ),
   del: ({ children, ...props }) => (
