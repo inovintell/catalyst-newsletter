@@ -84,3 +84,13 @@ This prompt helps you determine what documentation you should read based on the 
     - When debugging JSON aggregation or relevance scoring
     - When investigating newsletter generation failures or partial results
     - When implementing error handling for source fetching
+
+- app_docs/feature-5f8fc23c-eventsource-reconnection.md
+  - Conditions:
+    - When working with EventSource or Server-Sent Events (SSE) connections
+    - When implementing or modifying real-time streaming features
+    - When troubleshooting connection timeouts or disconnection issues
+    - When adding reconnection logic or fallback mechanisms to streaming APIs
+    - When working with long-running operations that use SSE for progress updates
+    - When debugging newsletter generation client-side connectivity issues
+    - When implementing polling fallback for real-time connections
