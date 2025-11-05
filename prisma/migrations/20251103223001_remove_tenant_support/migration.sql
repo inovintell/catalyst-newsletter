@@ -9,3 +9,6 @@ ALTER TABLE "User" DROP COLUMN IF EXISTS "tenantId";
 
 -- Add unique constraint on email
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
+
+-- Add unique constraint on NewsSource (website, topic)
+CREATE UNIQUE INDEX "NewsSource_website_topic_key" ON "NewsSource"("website", "topic");

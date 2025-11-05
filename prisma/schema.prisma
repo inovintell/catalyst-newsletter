@@ -41,21 +41,29 @@ model Newsletter {
 }
 
 model NewsletterGeneration {
-  id          Int       @id @default(autoincrement())
-  status      String
-  config      Json
-  prompt      String
-  output      String?
-  error       String?
-  traceId     String?   @db.VarChar(255)
-  startedAt   DateTime
-  completedAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id            Int       @id @default(autoincrement())
+  status        String
+  config        Json
+  prompt        String
+  output        String?
+  error         String?
+  traceId       String?   @db.VarChar(255)
+  startedAt     DateTime
+  completedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  jobStatus     String    @default("queued")
+  progress      Json?
+  currentStep   String?
+  processedAt   DateTime?
+  lastHeartbeat DateTime?
+  priority      Int       @default(0)
 
   @@index([status])
   @@index([createdAt])
   @@index([traceId])
+  @@index([jobStatus, createdAt])
+  @@index([lastHeartbeat])
 }
 
 model User {

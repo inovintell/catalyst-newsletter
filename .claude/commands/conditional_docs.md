@@ -94,3 +94,16 @@ This prompt helps you determine what documentation you should read based on the 
     - When working with long-running operations that use SSE for progress updates
     - When debugging newsletter generation client-side connectivity issues
     - When implementing polling fallback for real-time connections
+
+- app_docs/feature-bc4f9d05-background-job-queue.md
+  - Conditions:
+    - When working with background job processing or async newsletter generation
+    - When implementing or modifying job queue systems or database-backed task queues
+    - When troubleshooting job lifecycle issues (queued, running, completed, failed, cancelled)
+    - When working with long-running operations that need to survive disconnects or restarts
+    - When implementing status monitoring pages or real-time progress tracking
+    - When adding job cancellation functionality or AbortController patterns
+    - When working with Cloud Run serverless architecture or processor endpoints
+    - When debugging job processor polling, heartbeat, or stalled job detection
+    - When implementing EventSource reconnection for job status updates
+    - When working with archive pages showing in-progress jobs
