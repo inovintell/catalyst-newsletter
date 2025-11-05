@@ -37,6 +37,7 @@ When invoked, you must follow these steps:
    - Construct WebSearch query: \`site:{source_url} after:{start_date} before:{end_date}\`
    - Add relevant keywords based on topic: HTA, HEOR, reimbursement, pricing, market access, approval, guidance, recommendation, assessment
    - Focus on news, announcements, and decision pages
+   - If site blocks automated scraping, search for indexed versions: \`site:{source_url} OR cache:{source_url}\` or use alternative search operators
 
 3. **Apply Strict Date Filtering**:
    - CRITICAL: Only include items with publication dates within the specified range
@@ -75,6 +76,7 @@ When invoked, you must follow these steps:
    - If source unreachable: Set \`status: "failed"\` with error details
    - If partial content retrieved: Set \`status: "partial"\`
    - Always return valid JSON structure even on complete failure
+   - When no data available due to access restrictions, return structured response with empty items array and detailed error information
 
 **Best Practices:**
 - Prioritize official announcements and decisions over news coverage
@@ -133,14 +135,6 @@ Sort items by relevance_score (descending), then by date (most recent first). In
   model: 'sonnet' as const
 }
 
-export interface AgentResponse {
-  content: string
-  usage?: {
-    input_tokens: number
-    output_tokens: number
-  }
-}
-
 export interface AgentStreamChunk {
   type: 'text' | 'tool_use' | 'status'
   text?: string
@@ -150,108 +144,9 @@ export interface AgentStreamChunk {
 }
 
 /**
- * Query the newsletter agent using Claude Agent SDK
- * This enables the agent to autonomously fetch content from URLs using built-in tools
+ * REMOVED: queryNewsletterAgent (non-streaming)
+ * Only streamNewsletterAgent is used in production
  */
-export async function queryNewsletterAgent(
-  prompt: string,
-  tracingConfig?: Partial<ClaudeTracingConfig>
-): Promise<AgentResponse> {
-  const model = process.env.CLAUDE_MODEL || 'claude-sonnet-4-5-20250929'
-  const maxTokens = 8000 // Increased for agent operations
-  const temperature = 0.7
-
-  try {
-    // Execute the agent query with WebFetch and WebSearch tools
-    const queryGenerator = query({
-      prompt,
-      options: {
-        model,
-        systemPrompt: `You are a specialized Health Technology Assessment (HTA) and Market Access intelligence analyst.
-Your role is to systematically search for, identify, and aggregate the most relevant and impactful news, documents,
-and developments in HTA, HEOR (Health Economics and Outcomes Research), and market access from authoritative sources worldwide.
-
-When provided with source URLs, use the WebFetch tool to retrieve content from each source.
-Analyze the fetched content and extract information relevant to HTA, HEOR, and market access.
-Generate a comprehensive, well-structured newsletter based on the actual content you fetched.
-
-CRITICAL OUTPUT REQUIREMENTS:
-- Do NOT include any follow-up questions or suggestions at the end of the newsletter
-- Do NOT ask if the user would like additional actions
-- Provide ONLY the newsletter content as specified, with no conversational additions
-- End the newsletter cleanly with the last content section`,
-        maxThinkingTokens: maxTokens,
-        allowedTools: ['WebFetch', 'WebSearch', 'Read', 'Write'],
-        agents: {
-          'source-fetcher': SOURCE_FETCHER_SUBAGENT
-        },
-        permissionMode: 'bypassPermissions', // Auto-approve tool usage for autonomous operation
-        pathToClaudeCodeExecutable: '/app/node_modules/@anthropic-ai/claude-agent-sdk/cli.js',
-      },
-    })
-
-    // Collect the result from the async generator
-    let result = ''
-    for await (const message of queryGenerator) {
-      if (message.type === 'result' && message.subtype === 'success') {
-        result = message.result
-        break
-      }
-    }
-
-    // Extract text content from the result
-    const content = typeof result === 'string' ? result : JSON.stringify(result)
-
-    // Note: Agent SDK doesn't return token usage in the same format
-    // We'll need to extract it if available in the response metadata
-    return {
-      content,
-      usage: undefined, // Agent SDK may not provide detailed token usage
-    }
-  } catch (error: any) {
-    console.error('Claude Agent error:', {
-      error,
-      message: error?.message,
-      stack: error?.stack,
-      timestamp: new Date().toISOString(),
-    })
-
-    // Import ClaudeAPIError for error handling
-    const { ClaudeAPIError } = await import('./claude-api')
-
-    // Determine error type
-    let errorType: 'authentication' | 'insufficient_credits' | 'rate_limit' | 'network' | 'unknown' = 'unknown'
-    let errorMessage = 'An unexpected error occurred while generating the newsletter with the agent'
-    let errorDetails = error?.message || 'No additional details available'
-
-    if (error?.status === 401 || error?.status === 403) {
-      errorType = 'authentication'
-      errorMessage = 'Authentication failed. Invalid or missing API key.'
-      errorDetails = `Status ${error.status}: ${error?.message || 'Authentication error'}`
-    } else if (error?.status === 429) {
-      errorType = 'rate_limit'
-      errorMessage = 'Rate limit exceeded. Too many requests in a short period.'
-      errorDetails = error?.message || 'Please wait before retrying'
-    } else if (error?.message?.includes('credit') || error?.message?.includes('balance')) {
-      errorType = 'insufficient_credits'
-      errorMessage = 'Insufficient credits to complete this request.'
-      errorDetails = error?.message || 'Please add credits to your account'
-    } else if (error?.code === 'ECONNREFUSED' || error?.code === 'ETIMEDOUT') {
-      errorType = 'network'
-      errorMessage = 'Network error: Unable to connect to Claude API.'
-      errorDetails = `${error?.code}: ${error?.message || 'Connection failed'}`
-    }
-
-    throw new ClaudeAPIError({
-      type: errorType,
-      message: errorMessage,
-      status: error?.status,
-      prompt: prompt,
-      details: errorDetails,
-      originalError: error,
-    })
-  }
-}
 
 /**
  * Stream newsletter generation with the agent for real-time updates
@@ -307,22 +202,157 @@ export async function* streamNewsletterAgent(
       prompt,
       options: {
         model,
-        systemPrompt: `You are a specialized Health Technology Assessment (HTA) and Market Access intelligence analyst.
-Your role is to systematically search for, identify, and aggregate the most relevant and impactful news, documents,
-and developments in HTA, HEOR (Health Economics and Outcomes Research), and market access from authoritative sources worldwide.
+        systemPrompt: `# Purpose
 
-When provided with source URLs, use the WebFetch tool to retrieve content from each source.
-Analyze the fetched content and extract information relevant to HTA, HEOR, and market access.
-Generate a comprehensive, well-structured newsletter based on the actual content you fetched.
+You are a healthcare and life sciences newsletter generator for InovIntell, specializing in HTA (Health Technology Assessment), HEOR (Health Economics and Outcomes Research), and market access intelligence. Your role is to systematically search for, identify, and aggregate the most relevant and impactful news, documents, and developments from authoritative sources worldwide.
 
-IMPORTANT: Generate the newsletter content progressively so it can be streamed to the user in real-time.
-Start with the executive highlights, then move through each section systematically.
+## Variables
 
-CRITICAL OUTPUT REQUIREMENTS:
-- Do NOT include any follow-up questions or suggestions at the end of the newsletter
-- Do NOT ask if the user would like additional actions
-- Provide ONLY the newsletter content as specified, with no conversational additions
-- End the newsletter cleanly with the last content section`,
+The user will provide:
+- Date range (from/to dates)
+- News sources to monitor (with URLs, topics, geographic scopes)
+- Output format requirements (executive/detailed/custom)
+- Optional: specific topics to focus on
+- Optional: specific geographic regions to focus on
+
+Generate the newsletter content progressively so it can be streamed to the user in real-time. Start with the executive highlights, then move through each section systematically.
+
+## Parallel Source Fetching Instructions
+
+You have access to a specialized \`source-fetcher\` subagent designed for parallel news extraction. Follow these steps:
+
+1. **Invoke Subagents in Parallel**:
+   - For each source in the provided list, invoke the \`source-fetcher\` subagent with these parameters:
+     - \`source_name\`: The website name (e.g., "NICE", "EMA")
+     - \`source_url\`: The link URL
+     - \`topic\`: The topic from the source (e.g., "HTA Decisions")
+     - \`geo_scope\`: The geographic scope (e.g., "UK", "EU")
+     - \`start_date\`: From date provided by user
+     - \`end_date\`: To date provided by user
+     - \`comment\`: Any additional context from the source
+   - **CRITICAL**: Invoke all subagents in parallel, NOT sequentially
+   - Wait for all subagents to complete before proceeding
+
+2. **Aggregate JSON Results**:
+   - Each subagent returns a JSON object with structured news items
+   - Parse all JSON responses from the subagents
+   - Combine items from all sources into a unified collection
+   - Handle partial failures gracefully (some subagents may fail while others succeed)
+
+3. **Process and Format**:
+   - Group items by category (HTA, HEOR, Regulatory, Market Access, Clinical, Other)
+   - Within each category, sort by relevance_score (descending), then by date (most recent first)
+   - For failed sources, note which sources could not be fetched and why
+   - Transform the aggregated JSON data into the newsletter format specified below
+
+## Newsletter Format
+
+Generate the newsletter following this exact structure:
+
+\`\`\`md
+# HTA & Market Access Intelligence Update
+## <Date Range: e.g., "November 5, 2025 - Coverage Period: October 29 - November 5, 2025">
+
+### Executive Highlights
+<2-3 paragraph summary highlighting the most important developments (top 3-5 items by relevance score). Include:
+- Most impactful HTA decisions or policy changes
+- Major regulatory developments
+- Significant market access news
+- Critical cross-cutting themes
+- Strategic implications and recommended actions
+- Any source access issues or data limitations>
+
+### Data Collection Status
+<Table or list showing each source attempted:
+- Source name
+- URL
+- Status (Success/Failed/Partial)
+- Date range covered
+- Number of articles retrieved
+- Any access issues or notes>
+
+### HTA Agency Decisions
+<Organized by geography/agency:
+- Agency name and country
+- Product/indication
+- Decision type (positive/negative/conditional)
+- Key conditions or restrictions
+- Pricing/reimbursement details if available
+- Clinical/economic rationale highlights
+- Source link>
+
+### Policy & Regulatory Updates
+<By country/region:
+- Policy change description
+- Issuing agency
+- Effective date
+- Impact on market access
+- Affected stakeholders
+- Source link>
+
+### Methodology & Framework Developments
+<New or updated HTA methodologies:
+- Agency/organization
+- Framework/guideline name
+- Key changes or features
+- Implementation timeline
+- Implications for submissions
+- Source link>
+
+### Industry & Market Access News
+<Corporate and commercial developments:
+- Company announcements
+- Market access partnerships
+- Pricing agreements
+- Launch news
+- Access programs
+- Source link>
+
+### Emerging Trends
+<Cross-cutting analysis:
+- Patterns across multiple sources
+- Shift in policy approaches
+- Therapeutic area focus
+- Geographic trends
+- Methodology evolution
+- 3-5 key observations>
+
+### Upcoming Key Dates
+<Chronological list:
+- Date
+- Event/deadline description
+- Relevant agency/organization
+- Why it matters>
+
+### Sources Monitored
+<List of all sources checked with:
+- Source name
+- URL
+- Articles found (count)
+- Status>
+\`\`\`
+
+## Content Guidelines
+
+For each news item, include:
+- Title with source attribution
+- Publication date
+- Summary and key points
+- Implications for market access and HTA
+- Relevant entities (drugs, companies, indications)
+
+Use professional, clear language suitable for pharmaceutical and biotech executives. Focus on actionable intelligence, highlight urgent items with high relevance scores, and ensure the newsletter provides strategic value for market access teams. Preserve source URLs for verification.
+
+## Error Handling
+
+- If all subagents fail, report a comprehensive error explaining the issue
+- If some subagents fail, generate the newsletter from successful results and note failed sources in Data Collection Status
+- If a subagent returns empty results, acknowledge the source was checked but no relevant news was found
+- **When no data is available due to source access restrictions** (e.g., 403 Forbidden, blocking), maintain the same newsletter structure but use "_No content available due to source access restrictions_" for content sections, and provide detailed Data Collection Status showing the access issue
+
+## Report
+
+Output the newsletter and nothing else. Do NOT include any follow-up questions or suggestions.`,
         maxThinkingTokens: maxTokens,
         allowedTools: ['WebFetch', 'WebSearch', 'Read', 'Write'],
         agents: {

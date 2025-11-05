@@ -5,82 +5,6 @@ import { generateAgentConfig } from '@/lib/agent-manager'
 
 const prisma = new PrismaClient()
 
-// Helper function to generate mock newsletter
-function generateMockNewsletter(sources: any[], config: any): string {
-  const importantSources = sources.filter(s => s.importanceLevel === 'Important')
-  const criticalSources = sources.filter(s => s.importanceLevel === '100% Important')
-
-  return `# HTA & Market Access Intelligence Update
-## ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} - Last 7 Days
-
-### Executive Highlights
-- Neil Grubert LinkedIn: New insights on EU HTA Regulation implementation timeline
-- European Commission JCA: Updated guidance on joint clinical assessments starting Q1 2025
-- NICE announces major methodology review affecting all future appraisals
-- FDA publishes final guidance on real-world evidence for regulatory submissions
-- Germany's G-BA implements new fast-track pathway for innovative therapies
-
-### CRITICAL SOURCES - 100% Important Content
-${criticalSources.length > 0 ? criticalSources.map(s => `
-#### ${s.website}
-- Topic: ${s.topic}
-- Geographic Scope: ${s.geoScope}
-- [MOCK] Latest update from this critical source regarding ${s.topic}
-- Impact: High relevance for market access strategies`).join('\n') : '- No critical sources configured'}
-
-### HTA Agency Decisions
-
-#### NICE (United Kingdom)
-**Positive Recommendation for Novel Gene Therapy**
-- Source: NICE, ${new Date().toLocaleDateString()}
-- Summary: NICE recommends innovative gene therapy for rare metabolic disorder following successful managed access agreement
-- Why it matters: Sets precedent for future gene therapy evaluations
-- Link: https://www.nice.org.uk/guidance/[mock]
-
-#### G-BA (Germany)
-**Updated AMNOG Assessment for Oncology Treatment**
-- Source: G-BA, ${new Date().toLocaleDateString()}
-- Summary: Considerable added benefit recognized for first-line treatment in specific patient population
-- Why it matters: Influences pricing negotiations and market access strategy
-- Link: https://www.g-ba.de/[mock]
-
-### Policy & Regulatory Updates
-
-**European Commission Finalizes JCA Implementation**
-- Timeline confirmed for mandatory joint clinical assessments
-- First wave of products to undergo JCA process identified
-- Member states align on procedural guidelines
-
-**FDA Real-World Evidence Framework**
-- New guidance clarifies acceptable RWE study designs
-- Emphasis on data quality and regulatory-grade standards
-- Implications for post-market evidence generation
-
-### Industry & Market Access News
-${importantSources.length > 0 ? importantSources.slice(0, 5).map(s => `
-**${s.website} - ${s.topic}**
-- Geographic focus: ${s.geoScope}
-- [MOCK] Recent development in ${s.topic.toLowerCase()}
-- Relevance: ${s.requiresScreening ? 'Requires screening for HTA/MA relevance' : 'Direct HTA/MA impact'}`).join('\n') : '- Configure sources to see industry news'}
-
-### Emerging Trends
-- Increased focus on real-world evidence in HTA submissions
-- Growing importance of patient-reported outcomes
-- Shift toward value-based pricing agreements
-- Digital health technologies gaining HTA attention
-- Sustainability considerations in health technology assessment
-
-### Upcoming Key Dates
-- January 31, 2025: Deadline for JCA pilot program applications
-- February 15, 2025: NICE methods review consultation closes
-- March 1, 2025: ISPOR Europe abstract submission deadline
-- March 15, 2025: G-BA quarterly review publication
-
----
-*Generated on ${new Date().toLocaleDateString()} | ${sources.length} sources analyzed*
-*Note: Using mock generation - check your Anthropic API credits or configure a valid ANTHROPIC_API_KEY*`
-}
-
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const generationId = searchParams.get('id')
@@ -203,62 +127,17 @@ export async function GET(request: NextRequest) {
 
         // Build the source list for the agent
         const sourceList = sources.map(s =>
-          `- ${s.website} - ${s.topic} - ${s.link} (${s.importanceLevel || 'Standard'})`
+          `- ${s.website} (${s.topic}, ${s.geoScope}): ${s.link}${s.comment ? ` - ${s.comment}` : ''}`
         ).join('\n')
 
-        // Load the real agent prompt from the newsletter-agent.md content
-        const agentPrompt = `# Purpose
+        // Build user prompt with dynamic variables only
+        const agentPrompt = `Date Range: ${config.dateRange?.from || 'Last 7 days'} to ${config.dateRange?.to || 'Today'}
 
-You are a specialized Health Technology Assessment (HTA) and Market Access intelligence analyst. Your role is to systematically search for, identify, and aggregate the most relevant and impactful news, documents, and developments in HTA, HEOR (Health Economics and Outcomes Research), and market access from authoritative sources worldwide.
-
-## Current Date
-${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
-
-## Parameters
-- Date Range: ${config.dateRange?.from || 'Last 7 days'} to ${config.dateRange?.to || 'Today'}
-- Include Executive Summary: ${config.includeExecutiveSummary || true}
-- Group by Topic: ${config.groupByTopic || false}
-- Output Format: ${config.outputFormat || 'markdown'}
-
-## Active Sources (${sources.length} total)
-Sources to fetch content from:
-
+News Sources to Monitor:
 ${sourceList}
 
-## Task
-Generate a comprehensive HTA & Market Access Intelligence Update newsletter based on the above sources and parameters.
-
-Provide your final response as a structured newsletter draft in ${config.outputFormat || 'markdown'} format:
-
-# HTA & Market Access Intelligence Update
-## [Current Date] - [Date Range Coverage]
-
-### Executive Highlights
-- Top 3-5 most impactful developments
-
-### HTA Agency Decisions
-[Structured entries with source, summary, impact, and link]
-
-### Policy & Regulatory Updates
-[Structured entries as above]
-
-### Methodology & Framework Developments
-[Structured entries as above]
-
-### Industry & Market Access News
-[Structured entries as above]
-
-### Emerging Trends
-- Bullet points of patterns observed across sources
-
-### Upcoming Key Dates
-- Important deadlines, conferences, or expected decisions
-
-IMPORTANT: Provide ONLY the newsletter content in the format specified above.
-- Do NOT include any follow-up questions like "Would you like me to..."
-- Do NOT offer additional actions or suggestions
-- The newsletter should be complete and ready to publish as-is
-- End cleanly with the last content section without any conversational additions`
+Output Format: ${config.outputFormat || 'detailed'}
+${config.includeExecutiveSummary ? 'Include Executive Summary: Yes\n' : ''}${config.groupByTopic ? 'Group By Topic: Yes\n' : ''}${config.topics?.length ? `Focus Topics: ${config.topics.join(', ')}\n` : ''}${config.geoScopes?.length ? `Focus Regions: ${config.geoScopes.join(', ')}\n` : ''}`
 
         sendEvent('status', { message: 'Generating newsletter with Claude AI...' })
 
