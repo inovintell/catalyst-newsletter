@@ -246,6 +246,13 @@ catalyst-newsletter/
 - `GET /api/agent-config` - Get current agent configuration
 - `GET /api/health` - Health check endpoint
 
+### Background Jobs
+- `GET /api/jobs/process` - Trigger job processor (no authentication required)
+  - Returns SSE stream with heartbeat events
+  - Starts job queue service for background processing
+  - In production: triggered by Cloud Scheduler every 5 minutes
+  - During development: manually trigger with `curl http://localhost:3000/api/jobs/process`
+
 ## Database Schema
 
 ### NewsSource
